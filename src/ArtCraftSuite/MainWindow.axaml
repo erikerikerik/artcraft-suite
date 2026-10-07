@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:ArtCraftSuite.ViewModels"
+        x:Class="ArtCraftSuite.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="ArtCraft Suite" Width="940" Height="720" MinWidth="760" MinHeight="560"
+        Background="#0D0F16">
+  <Grid RowDefinitions="Auto,*,Auto">
+    <Border Grid.Row="0" Background="#12141E" Padding="28,22" BorderBrush="#292C3A" BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel>
+          <TextBlock Text="ARTCRAFT SUITE" FontSize="13" FontWeight="Bold" Foreground="#A998FF" LetterSpacing="2" />
+          <TextBlock Text="Your creative toolkit, in one place." FontSize="27" FontWeight="SemiBold" Margin="0,5,0,0" />
+          <TextBlock Text="Official upstream builds · verified before install" Foreground="#9CA3B4" Margin="0,5,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Spacing="10">
+          <TextBlock Text="Channel" VerticalAlignment="Center" Foreground="#AAB0C0" />
+          <ComboBox Width="120" ItemsSource="{Binding Channels}" SelectedItem="{Binding Channel}" />
+          <Button Content="Refresh" Command="{Binding RefreshCommand}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <ScrollViewer Grid.Row="1" Padding="28,22">
+      <StackPanel>
+        <TextBlock Text="APPLICATIONS" FontSize="12" FontWeight="Bold" Foreground="#72798D" LetterSpacing="1.5" Margin="0,0,0,10" />
+        <ItemsControl ItemsSource="{Binding Apps}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:AppItemViewModel">
+              <Border Classes="card" ToolTip.Tip="{Binding Error}">
+                <Grid ColumnDefinitions="Auto,54,*,Auto" RowDefinitions="Auto,Auto">
+                  <CheckBox Grid.Column="0" Grid.RowSpan="2" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                  <Border Grid.Column="1" Grid.RowSpan="2" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White" />
+                  </Border>
+                  <StackPanel Grid.Column="2" Margin="8,0,18,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                      <Border Background="#252839" CornerRadius="10" Padding="8,2" IsVisible="{Binding HasInstalledVersion}">
+                        <TextBlock Text="{Binding InstalledBadge}" FontSize="11" Foreground="#B8BDCB" />
+                      </Border>
+                    </StackPanel>
+                    <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,4,0,0" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="3" Grid.RowSpan="2" HorizontalAlignment="Right">
+                    <TextBlock Text="{Binding ReleaseLabel}" HorizontalAlignment="Right" Foreground="#A998FF" FontSize="12" Margin="0,0,0,7" />
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                      <Button Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}" />
+                      <Button Content="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}" />
+                      <Button Classes="primary" Content="{Binding ActionLabel}" Command="{Binding InstallCommand}" />
+                    </StackPanel>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="2" Background="#12141E" Padding="28,16" BorderBrush="#292C3A" BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+        <StackPanel Grid.Column="0" Margin="0,0,20,0">
+          <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" />
+          <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="4" Margin="0,9,0,0" IsVisible="{Binding IsBusy}" />
+        </StackPanel>
+        <Button Grid.Column="1" Grid.RowSpan="2" Classes="primary" Content="Install selected" Command="{Binding InstallSelectedCommand}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
