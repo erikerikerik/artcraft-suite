@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish
+        run: >-
+          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows-x64
+      - name: Package and checksum
+        shell: pwsh
+        run: |
+          Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/ArtCraftSuite-windows-x64.zip
+          (Get-FileHash artifacts/ArtCraftSuite-windows-x64.zip -Algorithm SHA256).Hash.ToLower() + '  ArtCraftSuite-windows-x64.zip' | Set-Content artifacts/ArtCraftSuite-windows-x64.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            artifacts/ArtCraftSuite-windows-x64.zip
+            artifacts/ArtCraftSuite-windows-x64.zip.sha256
+
+  macos-scaffold:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish and package unsigned scaffold
+        run: |
+          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/macos-arm64/publish
+          bash scripts/package-macos.sh artifacts/macos-arm64/publish artifacts/macos-arm64/ArtCraftSuite.app
+          ditto -c -k --sequesterRsrc --keepParent artifacts/macos-arm64/ArtCraftSuite.app artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
+          shasum -a 256 artifacts/ArtCraftSuite-macos-arm64-unsigned.zip > artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-scaffold-release
+          path: |
+            artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
+            artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
+
+  release:
+    needs: [windows, macos-scaffold]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: artifacts/*

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/validate-manifest.mjs
+      - run: dotnet restore
+      - run: dotnet build -c Release --no-restore
+
+  publish-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish Windows x64
+        run: >-
+          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r win-x64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows-x64
+      - name: Package
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/ArtCraftSuite-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArtCraftSuite-windows-x64
+          path: artifacts/ArtCraftSuite-windows-x64.zip
+
+  scaffold-macos-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish macOS ARM64
+        run: >-
+          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r osx-arm64
+          --self-contained true -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/macos-arm64/publish
+      - name: Build unsigned app scaffold
+        run: bash scripts/package-macos.sh artifacts/macos-arm64/publish artifacts/macos-arm64/ArtCraftSuite.app
+      - name: Archive scaffold
+        run: ditto -c -k --sequesterRsrc --keepParent artifacts/macos-arm64/ArtCraftSuite.app artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArtCraftSuite-macos-arm64-unsigned
+          path: artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
