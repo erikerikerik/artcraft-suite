@@ -125,12 +125,14 @@ public sealed class AppItemViewModel : ObservableObject
     public string? Error { get => _error; set { if (Set(ref _error, value)) Raise(nameof(ReleaseLabel)); } }
     public bool IsInstalled => Installed is not null && File.Exists(Installed.ExecutablePath);
     public bool HasInstalledVersion => IsInstalled;
-    public string InstalledBadge => IsInstalled ? $"Installed {Installed!.Version}" : string.Empty;
+    public string InstalledBadge => IsInstalled ? $"✓ INSTALLED · {Installed!.Version}" : string.Empty;
+    public string CardBackground => IsInstalled ? "#19241F" : "#171923";
+    public string CardBorder => IsInstalled ? "#39C98A" : "#2B2E3C";
     public string ReleaseLabel => Release is null ? (Error is null ? "Checking…" : "Unavailable") : $"Available {Release.Version}";
     public string ActionLabel => IsInstalled && Release?.Version != Installed?.Version ? "Update" : IsInstalled ? "Reinstall" : "Install";
     public AsyncCommand InstallCommand { get; }
     public AsyncCommand RemoveCommand { get; }
-    public System.Windows.Input.ICommand OpenCommand { get; }
+    public RelayCommand OpenCommand { get; }
 
     public AppItemViewModel(AppManifest manifest, InstalledApp? installed, Func<AppItemViewModel, Task> install, Func<AppItemViewModel, Task> remove, Action<AppItemViewModel> open)
     {
@@ -141,8 +143,9 @@ public sealed class AppItemViewModel : ObservableObject
     }
     private void RaiseStatus()
     {
-        Raise(nameof(IsInstalled)); Raise(nameof(HasInstalledVersion)); Raise(nameof(InstalledBadge)); Raise(nameof(ReleaseLabel)); Raise(nameof(ActionLabel));
-        InstallCommand.Notify(); RemoveCommand.Notify();
+        Raise(nameof(IsInstalled)); Raise(nameof(HasInstalledVersion)); Raise(nameof(InstalledBadge)); Raise(nameof(CardBackground));
+        Raise(nameof(CardBorder)); Raise(nameof(ReleaseLabel)); Raise(nameof(ActionLabel));
+        InstallCommand.Notify(); RemoveCommand.Notify(); OpenCommand.Notify();
     }
 }
 
