@@ -4,7 +4,7 @@ A lightweight, independent installer and update manager for the seven open-sourc
 [ArtCraft crafting apps](https://github.com/storytold). The first supported target
 is Windows x64; a macOS Apple Silicon build scaffold is included.
 
-> **Community project:** this repository is not maintained, sponsored, or endorsed
+> **Independent source-available project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
@@ -77,8 +77,19 @@ verification and reporting model.
 ## Contributing
 
 Issues and pull requests are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md).
-This manager is licensed under Apache-2.0; upstream application licenses and
-attributions remain separate in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+By submitting a contribution, you agree to the contribution terms in the project
+license.
+
+## License
+
+ArtCraft Suite Manager may be used, modified, and redistributed for personal,
+non-commercial purposes with prominent source credit. Commercial use is prohibited
+unless separately approved and licensed in writing by the original author. See
+[`LICENSE`](LICENSE) for the complete terms.
+
+This restriction means the manager is **source-available, not OSI open source**.
+The upstream ArtCraft applications and other dependencies keep their own licenses
+and attributions, listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Repository owners can follow the exact steps in [`PUBLISHING.md`](PUBLISHING.md)
 to push the source and create the first automated release.
