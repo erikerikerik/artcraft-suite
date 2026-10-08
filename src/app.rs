@@ -384,10 +384,8 @@ impl ArtCraftSuite {
             Stroke::new(1.0, BORDER)
         };
         let tooltip = self.apps[index].error.clone();
-        let card = ui.allocate_ui_with_layout(
-            size,
-            egui::Layout::top_down(egui::Align::Min),
-            |ui| {
+        let card =
+            ui.allocate_ui_with_layout(size, egui::Layout::top_down(egui::Align::Min), |ui| {
                 egui::Frame::new()
                     .fill(fill)
                     .stroke(stroke)
@@ -417,7 +415,8 @@ impl ArtCraftSuite {
                             });
                             ui.add_space(8.0);
                             let right_width = if installed { 224.0 } else { 122.0 };
-                            let middle_width = (ui.available_width() - right_width - 12.0).max(100.0);
+                            let middle_width =
+                                (ui.available_width() - right_width - 12.0).max(100.0);
                             ui.allocate_ui_with_layout(
                                 Vec2::new(middle_width, size.y - 28.0),
                                 egui::Layout::top_down(egui::Align::Min),
@@ -438,7 +437,8 @@ impl ArtCraftSuite {
                                         .truncate(),
                                     );
                                     if installed {
-                                        let version = &self.apps[index].installed.as_ref().unwrap().version;
+                                        let version =
+                                            &self.apps[index].installed.as_ref().unwrap().version;
                                         egui::Frame::new()
                                             .fill(Color32::from_rgb(22, 75, 56))
                                             .stroke(Stroke::new(1.0, GREEN))
@@ -446,10 +446,12 @@ impl ArtCraftSuite {
                                             .inner_margin(egui::Margin::symmetric(8, 3))
                                             .show(ui, |ui| {
                                                 ui.label(
-                                                    RichText::new(format!("✓ INSTALLED · {version}"))
-                                                        .size(11.0)
-                                                        .strong()
-                                                        .color(Color32::from_rgb(131, 240, 190)),
+                                                    RichText::new(format!(
+                                                        "✓ INSTALLED · {version}"
+                                                    ))
+                                                    .size(11.0)
+                                                    .strong()
+                                                    .color(Color32::from_rgb(131, 240, 190)),
                                                 );
                                             });
                                     }
@@ -493,7 +495,8 @@ impl ArtCraftSuite {
                                         if ui
                                             .add_enabled(
                                                 !self.busy,
-                                                egui::Button::new("Remove").min_size(Vec2::new(66.0, 36.0)),
+                                                egui::Button::new("Remove")
+                                                    .min_size(Vec2::new(66.0, 36.0)),
                                             )
                                             .clicked()
                                         {
@@ -512,13 +515,17 @@ impl ArtCraftSuite {
                                     } else {
                                         "Install"
                                     };
-                                    let can_install = !self.busy && self.apps[index].release.is_some();
+                                    let can_install =
+                                        !self.busy && self.apps[index].release.is_some();
                                     if ui
                                         .add_enabled(
                                             can_install,
                                             primary_button(
                                                 label,
-                                                Vec2::new(if installed { 86.0 } else { 82.0 }, 36.0),
+                                                Vec2::new(
+                                                    if installed { 86.0 } else { 82.0 },
+                                                    36.0,
+                                                ),
                                             ),
                                         )
                                         .clicked()
@@ -530,8 +537,7 @@ impl ArtCraftSuite {
                             });
                         });
                     })
-            },
-        );
+            });
         let response = card.inner.response;
         if let Some(tooltip) = tooltip {
             response.on_hover_text(tooltip);
