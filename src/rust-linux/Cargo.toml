@@ -1,6 +1,6 @@
 [package]
 name = "artcraft-suite-linux"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 description = "Rust Ubuntu installer for the ArtCraft creative apps"
 license = "Apache-2.0"
@@ -15,6 +15,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
 tempfile = "3"
+semver = "1"
 
 [profile.release]
 strip = true

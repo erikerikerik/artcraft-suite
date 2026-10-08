@@ -3,14 +3,22 @@ use regex::Regex;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::cmp::Ordering;
+use std::collections::{BTreeMap, HashMap};
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
 const MANIFEST: &str = include_str!("../../../manifest/apps.json");
+const EXPECTED_TEAM_IDENTIFIER: &str = "DJ6XS33FX8";
+const RELEASE_CACHE_TTL: Duration = Duration::from_secs(300);
+
+type CachedReleases = HashMap<String, (Instant, Vec<ApiRelease>)>;
+static RELEASE_CACHE: OnceLock<Mutex<CachedReleases>> = OnceLock::new();
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +59,7 @@ pub struct InstallState {
     pub apps: BTreeMap<String, InstalledApp>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct ApiRelease {
     tag_name: String,
     draft: bool,
@@ -59,7 +67,7 @@ struct ApiRelease {
     assets: Vec<ApiAsset>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 struct ApiAsset {
     name: String,
     browser_download_url: String,
@@ -104,17 +112,22 @@ fn client() -> Result<Client> {
         .build()?)
 }
 
-pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
+pub fn resolve_with_refresh(
+    app: &AppManifest,
+    stable: bool,
+    force_refresh: bool,
+) -> Result<Release> {
+    let platform = match std::env::consts::ARCH {
+        "x86_64" => "macos-x64",
+        "aarch64" => "macos-arm64",
+        arch => bail!("Unsupported macOS architecture: {arch}"),
+    };
     let template = app
         .asset_patterns
-        .get("macos-arm64")
+        .get(platform)
         .context("No macOS package rule")?;
-    let url = format!(
-        "https://api.github.com/repos/{}/releases?per_page=20",
-        app.repository
-    );
     let http = client()?;
-    let releases: Vec<ApiRelease> = http.get(url).send()?.error_for_status()?.json()?;
+    let releases = releases_for(&http, &app.repository, force_refresh)?;
     for release in releases
         .into_iter()
         .filter(|r| !r.draft && (!stable || !r.prerelease))
@@ -151,6 +164,61 @@ pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
         }
     }
     bail!("No matching macOS DMG in the selected release channel")
+}
+
+fn releases_for(http: &Client, repository: &str, force_refresh: bool) -> Result<Vec<ApiRelease>> {
+    let cache = RELEASE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if !force_refresh {
+        if let Some((fetched, releases)) = cache
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Release cache is unavailable"))?
+            .get(repository)
+        {
+            if fetched.elapsed() < RELEASE_CACHE_TTL {
+                return Ok(releases.clone());
+            }
+        }
+    }
+    let url = format!("https://api.github.com/repos/{repository}/releases?per_page=20");
+    let response = checked_response(http.get(url).send()?, "GitHub releases API")?;
+    let releases: Vec<ApiRelease> = response.json()?;
+    cache
+        .lock()
+        .map_err(|_| anyhow::anyhow!("Release cache is unavailable"))?
+        .insert(repository.to_string(), (Instant::now(), releases.clone()));
+    Ok(releases)
+}
+
+fn checked_response(
+    response: reqwest::blocking::Response,
+    context: &str,
+) -> Result<reqwest::blocking::Response> {
+    let status = response.status();
+    if status.is_success() {
+        return Ok(response);
+    }
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS
+        || (status == reqwest::StatusCode::FORBIDDEN
+            && response
+                .headers()
+                .get("x-ratelimit-remaining")
+                .and_then(|v| v.to_str().ok())
+                == Some("0"))
+    {
+        bail!("GitHub's hourly release-check limit was reached. Try again in a few minutes.");
+    }
+    if status == reqwest::StatusCode::FORBIDDEN {
+        bail!("GitHub denied the request for {context}. Try again shortly.");
+    }
+    bail!("{context} failed with HTTP {status}");
+}
+
+pub fn compare_versions(available: &str, installed: &str) -> Option<Ordering> {
+    let parse = |value: &str| {
+        let normalized = value.strip_prefix(['v', 'V']).unwrap_or(value);
+        semver::Version::parse(normalized).ok()
+    };
+    Some(parse(available)?.cmp(&parse(installed)?))
 }
 
 fn parse_digest(value: &str) -> Option<String> {
@@ -209,9 +277,58 @@ pub fn load_state() -> Result<InstallState> {
     if !path.exists() {
         return Ok(InstallState::default());
     }
-    Ok(serde_json::from_reader(File::open(&path).with_context(
-        || format!("Could not read {}", path.display()),
-    )?)?)
+    let contents = fs::read(&path).with_context(|| format!("Could not read {}", path.display()))?;
+    match serde_json::from_slice(&contents) {
+        Ok(state) => Ok(state),
+        Err(parse_error) => {
+            let backup = path.with_file_name(format!(
+                "state.json.corrupt-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos()
+            ));
+            fs::rename(&path, &backup).with_context(|| {
+                format!(
+                    "Settings are damaged and could not be preserved at {}",
+                    backup.display()
+                )
+            })?;
+            let state = rebuild_state()?;
+            save_state(&state).with_context(|| {
+                format!("Could not save recovered settings after {parse_error}")
+            })?;
+            Ok(state)
+        }
+    }
+}
+
+fn rebuild_state() -> Result<InstallState> {
+    let mut state = InstallState::default();
+    for app in manifest()?.apps {
+        let bundle = bundle_path(&app)?;
+        if !bundle.is_dir() || fs::symlink_metadata(&bundle)?.file_type().is_symlink() {
+            continue;
+        }
+        let info: BundleInfo = match plist::from_file(bundle.join("Contents/Info.plist")) {
+            Ok(info) => info,
+            Err(_) => continue,
+        };
+        if !info.id.to_ascii_lowercase().contains(&app.id) {
+            continue;
+        }
+        state.apps.insert(
+            app.id,
+            InstalledApp {
+                version: "unknown".into(),
+                source_asset: "recovered-local-install".into(),
+                sha256: String::new(),
+                bundle_id: info.id,
+            },
+        );
+    }
+    Ok(state)
 }
 
 fn save_state(state: &InstallState) -> Result<()> {
@@ -238,6 +355,7 @@ pub fn install(
         "An app already exists at {} but is not managed by ArtCraft Suite",
         target.display()
     );
+    ensure_not_running(&target)?;
     let workspace = TempDir::new_in(&root)?;
     let archive = workspace.path().join("release.dmg");
     download(release, &archive, &mut progress)?;
@@ -272,7 +390,7 @@ fn install_verified_archive(
         String::from_utf8_lossy(&output.stderr)
     );
     let guard = MountGuard(mount.clone());
-    let source = discover_bundle(&mount, app)?;
+    let source = discover_bundle(&mount)?;
     let staging = workspace.join("staged.app");
     progress(1.0, "Copying app bundle…");
     let output = Command::new("ditto").arg(&source).arg(&staging).output()?;
@@ -368,7 +486,7 @@ impl Drop for MountGuard {
     }
 }
 
-fn discover_bundle(mount: &Path, app: &AppManifest) -> Result<PathBuf> {
+fn discover_bundle(mount: &Path) -> Result<PathBuf> {
     let mut bundles = Vec::new();
     for entry in fs::read_dir(mount)? {
         let path = entry?.path();
@@ -381,7 +499,6 @@ fn discover_bundle(mount: &Path, app: &AppManifest) -> Result<PathBuf> {
         "Expected exactly one .app bundle in the DMG; found {}",
         bundles.len()
     );
-    validate_bundle(&bundles[0], app)?;
     Ok(bundles.remove(0))
 }
 
@@ -404,14 +521,107 @@ fn validate_bundle(bundle: &Path, app: &AppManifest) -> Result<String> {
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'),
         "Unsafe bundle executable name"
     );
+    let executable = bundle.join("Contents/MacOS").join(&info.executable);
+    ensure!(executable.is_file(), "App executable is missing");
+    let cleanup = Command::new("xattr")
+        .args(["-rd", "com.apple.FinderInfo"])
+        .arg(bundle)
+        .output()?;
+    if !cleanup.status.success()
+        && !String::from_utf8_lossy(&cleanup.stderr).contains("No such xattr")
+    {
+        bail!(
+            "Could not normalize app bundle metadata: {}",
+            String::from_utf8_lossy(&cleanup.stderr).trim()
+        );
+    }
+    let signature = Command::new("codesign")
+        .args(["--verify", "--deep", "--strict"])
+        .arg(bundle)
+        .output()?;
     ensure!(
-        bundle
-            .join("Contents/MacOS")
-            .join(&info.executable)
-            .is_file(),
-        "App executable is missing"
+        signature.status.success(),
+        "App signature is invalid: {}",
+        String::from_utf8_lossy(&signature.stderr).trim()
+    );
+    let details = Command::new("codesign")
+        .args(["-dv", "--verbose=4"])
+        .arg(bundle)
+        .output()?;
+    ensure!(
+        details.status.success(),
+        "Could not read app signing identity"
+    );
+    let details = format!(
+        "{}{}",
+        String::from_utf8_lossy(&details.stdout),
+        String::from_utf8_lossy(&details.stderr)
+    );
+    let team = details
+        .lines()
+        .find_map(|line| line.strip_prefix("TeamIdentifier="));
+    ensure!(
+        team == Some(EXPECTED_TEAM_IDENTIFIER),
+        "Unexpected app signing team: {}",
+        team.unwrap_or("missing")
+    );
+    let assessment = Command::new("spctl")
+        .args(["--assess", "--type", "execute"])
+        .arg(bundle)
+        .output()?;
+    ensure!(
+        assessment.status.success(),
+        "Gatekeeper rejected the app: {}",
+        String::from_utf8_lossy(&assessment.stderr).trim()
+    );
+    let output = Command::new("lipo")
+        .arg("-archs")
+        .arg(&executable)
+        .output()?;
+    ensure!(
+        output.status.success(),
+        "Could not inspect app executable architecture"
+    );
+    let architectures = String::from_utf8_lossy(&output.stdout);
+    let expected = match std::env::consts::ARCH {
+        "x86_64" => "x86_64",
+        "aarch64" => "arm64",
+        arch => bail!("Unsupported macOS architecture: {arch}"),
+    };
+    ensure!(
+        architectures
+            .split_whitespace()
+            .any(|arch| arch == expected),
+        "App does not contain a {expected} executable slice"
     );
     Ok(info.id)
+}
+
+fn ensure_not_running(bundle: &Path) -> Result<()> {
+    if !bundle.exists() {
+        return Ok(());
+    }
+    let info: BundleInfo = plist::from_file(bundle.join("Contents/Info.plist"))?;
+    let executable = bundle.join("Contents/MacOS").join(info.executable);
+    let output = Command::new("lsof")
+        .args(["-n", "-t"])
+        .arg(&executable)
+        .output()?;
+    if output.status.success() && !output.stdout.is_empty() {
+        bail!(
+            "{} is open. Quit it before updating or removing it.",
+            bundle
+                .file_stem()
+                .and_then(|v| v.to_str())
+                .unwrap_or("The app")
+        );
+    }
+    ensure!(
+        output.status.code() == Some(1),
+        "Could not check whether the app is open: {}",
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    Ok(())
 }
 
 pub fn remove(app: &AppManifest) -> Result<()> {
@@ -421,6 +631,7 @@ pub fn remove(app: &AppManifest) -> Result<()> {
         "App is not managed by ArtCraft Suite"
     );
     let target = bundle_path(app)?;
+    ensure_not_running(&target)?;
     // Rename into a private holding area, commit state, then delete the old bundle.
     let root = apps_root()?;
     fs::create_dir_all(&root)?;
@@ -459,6 +670,7 @@ mod tests {
         assert_eq!(data.apps.len(), 7);
         for app in data.apps {
             assert!(app.asset_patterns.contains_key("macos-arm64"));
+            assert!(app.asset_patterns.contains_key("macos-x64"));
         }
     }
 
@@ -466,6 +678,49 @@ mod tests {
     fn digest_requires_full_sha256() {
         assert!(parse_digest("sha256:1234").is_none());
         assert!(parse_digest(&format!("sha256:{}", "a".repeat(64))).is_some());
+    }
+
+    #[test]
+    fn available_versions_are_compared_semantically() {
+        assert_eq!(compare_versions("1.10.0", "1.9.0"), Some(Ordering::Greater));
+        assert_eq!(
+            compare_versions("1.0.0-beta.2", "1.0.0"),
+            Some(Ordering::Less)
+        );
+        assert_eq!(compare_versions("v1.2.3", "1.2.3"), Some(Ordering::Equal));
+    }
+
+    #[test]
+    fn damaged_state_is_preserved_and_rebuilt() {
+        let home = TempDir::new().unwrap();
+        let state = home
+            .path()
+            .join("Library/Application Support/ArtCraftSuite/state.json");
+        fs::create_dir_all(state.parent().unwrap()).unwrap();
+        fs::write(&state, b"{broken json").unwrap();
+        let previous_home = std::env::var_os("HOME");
+        unsafe {
+            std::env::set_var("HOME", home.path());
+        }
+        let result = load_state().unwrap();
+        if let Some(previous_home) = previous_home {
+            unsafe {
+                std::env::set_var("HOME", previous_home);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("HOME");
+            }
+        }
+        assert!(result.apps.is_empty());
+        assert!(state.exists());
+        assert!(fs::read_dir(state.parent().unwrap()).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("state.json.corrupt-")
+        }));
     }
 
     #[test]

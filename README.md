@@ -1,15 +1,14 @@
 # ArtCraft Suite Manager
 
 A lightweight, independent installer and update manager for the seven open-source
-[ArtCraft crafting apps](https://github.com/storytold). The Windows x64 manager
-is written in C#; separate macOS Apple Silicon and Ubuntu managers are written
-in Rust.
+[ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
+Rust universal macOS manager for Intel and Apple Silicon are available.
 
 > **Independent open-source project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
-## Windows manager
+## What works
 
 - Finds PhotoCraft, VectorCraft, DesignCraft, FilmCraft, EffectCraft, LightCraft,
   and PrintCraft from a readable JSON manifest.
@@ -23,7 +22,7 @@ in Rust.
   launches installed apps, and removes only manager-owned app directories.
 - Builds a self-contained Windows x64 release artifact in GitHub Actions.
 
-## Windows download and run
+## Download and run
 
 Download `ArtCraftSuite-windows-x64.zip` from this repository's Releases page,
 extract it, and run `ArtCraftSuite.exe`. Windows may show a SmartScreen warning
@@ -34,7 +33,7 @@ The manager itself does not need administrator rights. Each creative application
 keeps its own settings and documents outside the manager-owned installation
 folder, so updating or removing an app does not intentionally remove user work.
 
-## Build Windows locally
+## Build locally
 
 Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then:
 
@@ -58,7 +57,7 @@ declares its upstream `owner/repository` and anchored asset-name patterns. Token
 `{id}` and `{version}` are escaped before matching. A manifest change cannot bypass
 the runtime hash requirement.
 
-## macOS Apple Silicon
+## macOS Intel and Apple Silicon
 
 The macOS manager is a windowed Rust application in `src/rust-macos`. It installs
 the official universal DMGs into `~/Applications/ArtCraft Suite`, verifies SHA-256
@@ -69,11 +68,11 @@ repository but is not the installer.
 
 ## Ubuntu Linux
 
-The Ubuntu manager is a windowed Rust application in `src/rust-linux`. A `.deb`
-adds it to the Ubuntu app menu on x86-64 or ARM64. It verifies official upstream
-AppImages, extracts them into the user's XDG data directory, and supports
-updates, opening, and removal without administrator prompts for those apps.
-See [`docs/LINUX.md`](docs/LINUX.md) for build and install instructions.
+The Ubuntu manager is a windowed Rust application in `src/rust-linux`. It installs
+verified official AppImages into your user data folder, adds app launchers, and
+supports updates and removal without administrator access. Debian packages are
+built for Ubuntu on x86-64 and ARM64. See [`docs/LINUX.md`](docs/LINUX.md) for
+build and packaging instructions.
 
 ## Security and privacy
 

@@ -4,7 +4,7 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 binary="${1:?path to Linux Rust binary is required}"
 output_dir="${2:?output directory is required}"
-version="${3:-0.1.0}"
+version="${3:-$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo_root/src/rust-linux/Cargo.toml" | head -1)}"
 arch="$(dpkg --print-architecture)"
 
 [[ "$arch" == "amd64" || "$arch" == "arm64" ]] || { echo "Unsupported architecture: $arch" >&2; exit 1; }

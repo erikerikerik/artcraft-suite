@@ -1,6 +1,7 @@
 mod backend;
 
 use backend::{AppManifest, InstallState, Release};
+use std::cmp::Ordering;
 use eframe::egui::{self, Color32, RichText};
 use std::sync::mpsc::{self, Receiver, Sender};
 
@@ -29,7 +30,10 @@ impl Manager {
     fn new(apps: Vec<AppManifest>) -> Self {
         let (tx, rx) = mpsc::channel();
         let count = apps.len();
-        let state = backend::load_state().unwrap_or_default();
+        let (state, state_error) = match backend::load_state() {
+            Ok(state) => (state, None),
+            Err(error) => (InstallState::default(), Some(format!("Could not recover settings: {error:#}"))),
+        };
         let mut manager = Self {
             apps,
             releases: vec![None; count],
@@ -37,17 +41,17 @@ impl Manager {
             state,
             stable: true,
             busy: false,
-            status: "Ready to check releases.".into(),
+            status: state_error.unwrap_or_else(|| "Ready to check releases.".into()),
             progress: 0.0,
             pending_remove: None,
             tx,
             rx,
         };
-        manager.refresh();
+        manager.refresh(false);
         manager
     }
 
-    fn refresh(&mut self) {
+    fn refresh(&mut self, force: bool) {
         if self.busy {
             return;
         }
@@ -55,11 +59,12 @@ impl Manager {
         self.status = "Checking upstream releases…".into();
         let apps = self.apps.clone();
         let stable = self.stable;
+        let force = force;
         let tx = self.tx.clone();
         std::thread::spawn(move || {
             let results = apps
                 .iter()
-                .map(|app| backend::resolve(app, stable).map_err(|e| e.to_string()))
+                .map(|app| backend::resolve_cached(app, stable, force).map_err(|e| e.to_string()))
                 .collect();
             let _ = tx.send(Event::Releases(results));
         });
@@ -137,8 +142,10 @@ impl Manager {
                     self.status = status;
                 }
                 Event::Done(status) => {
-                    self.state = backend::load_state().unwrap_or_default();
-                    self.status = status;
+                    self.status = match backend::load_state() {
+                        Ok(state) => { self.state = state; status },
+                        Err(error) => format!("{status} Settings could not be reloaded: {error:#}"),
+                    };
                     self.busy = false;
                     self.progress = 0.0;
                 }
@@ -172,14 +179,14 @@ impl eframe::App for Manager {
                 ui.label("Release channel:");
                 if ui.selectable_label(self.stable, "Stable").clicked() && !self.stable && !self.busy {
                     self.stable = true;
-                    self.refresh();
+                    self.refresh(false);
                 }
                 if ui.selectable_label(!self.stable, "Latest").clicked() && self.stable && !self.busy {
                     self.stable = false;
-                    self.refresh();
+                    self.refresh(false);
                 }
                 ui.add_space(12.0);
-                if ui.add_enabled(!self.busy, egui::Button::new("Check releases")).clicked() { self.refresh(); }
+                if ui.add_enabled(!self.busy, egui::Button::new("Check releases")).clicked() { self.refresh(true); }
             });
             ui.separator();
             ui.label(&self.status);
@@ -214,8 +221,15 @@ impl eframe::App for Manager {
                                     remove_clicked = ui.add_enabled(!self.busy, egui::Button::new("Remove")).clicked();
                                     open_clicked = ui.add_enabled(!self.busy, egui::Button::new("Open")).clicked();
                                 }
-                                let action = if installed_version.is_none() { "Install" }
-                                    else if installed_version != available { "Update" } else { "Reinstall" };
+                                let action = match (installed_version.as_deref(), available.as_deref()) {
+                                    (None, _) => "Install",
+                                    (Some(_), None) => "Reinstall",
+                                    (Some(installed), Some(available)) => match backend::compare_versions(available, installed) {
+                                        Ordering::Greater => "Update",
+                                        Ordering::Less => "Downgrade",
+                                        Ordering::Equal => "Reinstall",
+                                    }
+                                };
                                 install_clicked = ui.add_enabled(!self.busy && available.is_some(), egui::Button::new(action)).clicked();
                             });
                         });

@@ -10,6 +10,8 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use tempfile::{NamedTempFile, TempDir};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 const MANIFEST: &str = include_str!("../../../manifest/apps.json");
 
@@ -111,6 +113,19 @@ fn client() -> Result<Client> {
 }
 
 pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
+    resolve_cached(app, stable, false)
+}
+
+pub fn resolve_cached(app: &AppManifest, stable: bool, force: bool) -> Result<Release> {
+    type Cache = BTreeMap<(String, bool), (Instant, Release)>;
+    static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(BTreeMap::new()));
+    let key = (app.repository.clone(), stable);
+    if !force {
+        if let Some((time, release)) = cache.lock().unwrap().get(&key) {
+            if time.elapsed() < Duration::from_secs(300) { return Ok(release.clone()); }
+        }
+    }
     let platform = platform_key()?;
     let template = app
         .asset_patterns
@@ -121,7 +136,11 @@ pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
         app.repository
     );
     let http = client()?;
-    let releases: Vec<ApiRelease> = http.get(url).send()?.error_for_status()?.json()?;
+    let response = http.get(url).send()?;
+    if response.status().as_u16() == 403 || response.status().as_u16() == 429 {
+        bail!("GitHub has temporarily rate-limited release checks. Wait a few minutes, then try again.");
+    }
+    let releases: Vec<ApiRelease> = response.error_for_status()?.json()?;
     for release in releases
         .into_iter()
         .filter(|r| !r.draft && (!stable || !r.prerelease))
@@ -148,13 +167,15 @@ pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
                         .flatten()
                 })
                 .context("Upstream release has no usable SHA-256 digest")?;
-            return Ok(Release {
+            let found = Release {
                 version,
                 asset_name: asset.name.clone(),
                 url: asset.browser_download_url.clone(),
                 size: asset.size,
                 sha256,
-            });
+            };
+            cache.lock().unwrap().insert(key, (Instant::now(), found.clone()));
+            return Ok(found);
         }
     }
     bail!("No matching AppImage in the selected release channel")
@@ -224,9 +245,39 @@ pub fn load_state() -> Result<InstallState> {
     if !path.exists() {
         return Ok(InstallState::default());
     }
-    Ok(serde_json::from_reader(File::open(&path).with_context(
-        || format!("Could not read {}", path.display()),
-    )?)?)
+    match serde_json::from_reader(File::open(&path).with_context(|| format!("Could not read {}", path.display()))?) {
+        Ok(state) => Ok(state),
+        Err(error) => {
+            let backup = path.with_file_name(format!("state.json.corrupt-{}", unix_time()));
+            fs::rename(&path, &backup).with_context(|| format!("Settings are damaged and could not be moved aside: {error}"))?;
+            let mut state = InstallState::default();
+            if let Ok(suite) = manifest() {
+                for app in suite.apps {
+                    let target = installed_path(&app)?;
+                    if target.join("AppRun").is_file() {
+                        state.apps.insert(app.id, InstalledApp {
+                            version: "unknown".into(),
+                            source_asset: "unknown".into(),
+                            sha256: String::new(),
+                        });
+                    }
+                }
+            }
+            save_state(&state)?;
+            Ok(state)
+        }
+    }
+}
+
+fn unix_time() -> u64 { std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs() }
+
+pub fn compare_versions(a: &str, b: &str) -> std::cmp::Ordering {
+    let left = a.trim_start_matches(['v', 'V']);
+    let right = b.trim_start_matches(['v', 'V']);
+    match (semver::Version::parse(left), semver::Version::parse(right)) {
+        (Ok(a), Ok(b)) => a.cmp(&b),
+        _ => left.cmp(right),
+    }
 }
 
 fn save_state(state: &InstallState) -> Result<()> {
@@ -456,6 +507,13 @@ pub fn launch(app: &AppManifest) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn compares_release_versions_semantically() {
+        assert_eq!(compare_versions("1.10.0", "1.9.9"), std::cmp::Ordering::Greater);
+        assert_eq!(compare_versions("v1.0.0", "1.0.0"), std::cmp::Ordering::Equal);
+        assert_eq!(compare_versions("0.9.0", "1.0.0"), std::cmp::Ordering::Less);
+    }
 
     #[test]
     fn manifest_is_safe_and_complete() {
