@@ -14,11 +14,16 @@ use std::{
 
 const USER_AGENT: &str = "ArtCraft-Suite/0.2 (+https://github.com/erikerikerik/artcraft-suite)";
 
+#[cfg(target_os = "windows")]
 fn child_command(program: &str) -> Command {
     let mut command = Command::new(program);
-    #[cfg(target_os = "windows")]
     command.creation_flags(0x0800_0000);
     command
+}
+
+#[cfg(not(target_os = "windows"))]
+fn child_command(program: &str) -> Command {
+    Command::new(program)
 }
 
 pub fn platform_key() -> &'static str {
