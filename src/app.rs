@@ -283,30 +283,27 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.columns(2, |columns| {
-                    columns[0].with_layout(
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            ui.label(
-                                RichText::new("A R T C R A F T   S U I T E")
-                                    .size(13.0)
-                                    .strong()
-                                    .color(PURPLE),
-                            );
-                            ui.add_space(4.0);
-                            ui.label(
-                                RichText::new("Your creative toolkit, in one place.")
-                                    .size(27.0)
-                                    .strong()
-                                    .color(Color32::WHITE),
-                            );
-                            ui.add_space(3.0);
-                            ui.label(
-                                RichText::new("Official upstream builds · verified before install")
-                                    .size(15.0)
-                                    .color(Color32::from_rgb(156, 163, 180)),
-                            );
-                        },
-                    );
+                    columns[0].with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                        ui.label(
+                            RichText::new("A R T C R A F T   S U I T E")
+                                .size(13.0)
+                                .strong()
+                                .color(PURPLE),
+                        );
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new("Your creative toolkit, in one place.")
+                                .size(27.0)
+                                .strong()
+                                .color(Color32::WHITE),
+                        );
+                        ui.add_space(3.0);
+                        ui.label(
+                            RichText::new("Official upstream builds · verified before install")
+                                .size(15.0)
+                                .color(Color32::from_rgb(156, 163, 180)),
+                        );
+                    });
                     columns[1].with_layout(
                         egui::Layout::right_to_left(egui::Align::Center),
                         |ui| {

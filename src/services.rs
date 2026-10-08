@@ -134,12 +134,8 @@ fn resolve_stable_release_without_api(
     let checksum_url = format!("{release_root}/SHA256SUMS.txt");
     let checksum_text = String::from_utf8(curl_bytes(&checksum_url)?)
         .map_err(|error| format!("Checksum file was not UTF-8: {error}"))?;
-    let sha256 = checksum_for_file(&checksum_text, &asset_name).ok_or_else(|| {
-        format!(
-            "{} does not publish a SHA-256 for {asset_name}",
-            app.name
-        )
-    })?;
+    let sha256 = checksum_for_file(&checksum_text, &asset_name)
+        .ok_or_else(|| format!("{} does not publish a SHA-256 for {asset_name}", app.name))?;
 
     Ok(ResolvedRelease {
         version,
@@ -161,10 +157,12 @@ fn concrete_asset_name(template: &str, package_id: &str, version: &str) -> Resul
         .replace("{id}", package_id)
         .replace("{version}", version)
         .replace("\\.", ".");
-    if name
-        .chars()
-        .any(|character| matches!(character, '\\' | '^' | '$' | '(' | ')' | '[' | ']' | '|' | '*' | '+' | '?'))
-    {
+    if name.chars().any(|character| {
+        matches!(
+            character,
+            '\\' | '^' | '$' | '(' | ')' | '[' | ']' | '|' | '*' | '+' | '?'
+        )
+    }) {
         return Err("Package rule is too complex for the release fallback".into());
     }
     Ok(name)
