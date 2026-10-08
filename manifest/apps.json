@@ -7,7 +7,12 @@
       "description": "Image editing and compositing",
       "repository": "storytold/photocraft",
       "accent": "#6D5DFB",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "vectorcraft",
@@ -15,7 +20,12 @@
       "description": "Vector illustration and design",
       "repository": "storytold/vectorcraft",
       "accent": "#E86F45",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "designcraft",
@@ -23,7 +33,12 @@
       "description": "Page layout and publishing",
       "repository": "storytold/designcraft",
       "accent": "#D9468D",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "filmcraft",
@@ -31,7 +46,12 @@
       "description": "Video editing, color and sound",
       "repository": "storytold/filmcraft",
       "accent": "#7B4FE9",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "effectcraft",
@@ -39,7 +59,12 @@
       "description": "Motion graphics and visual effects",
       "repository": "storytold/effectcraft",
       "accent": "#3859D9",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "lightcraft",
@@ -47,7 +72,12 @@
       "description": "Photography and raw development",
       "repository": "storytold/lightcraft",
       "accent": "#2FA7A0",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     },
     {
       "id": "printcraft",
@@ -55,7 +85,12 @@
       "description": "PDF viewing and editing",
       "repository": "storytold/pdfcraft",
       "accent": "#D24B4B",
-      "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
+      "assetPatterns": {
+        "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$",
+        "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$",
+        "linux-x64": "^{id}-{version}-linux-x86_64\\.AppImage$",
+        "linux-arm64": "^{id}-{version}-linux-aarch64\\.AppImage$"
+      }
     }
   ]
 }

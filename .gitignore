@@ -6,6 +6,8 @@ obj/
 *.user
 artifacts/
 src/rust-macos/target/
+src/rust-linux/target/
+__pycache__/
 TestResults/
 work/
 outputs/

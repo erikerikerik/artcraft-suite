@@ -17,6 +17,12 @@ and paths escaping that directory are rejected. Updates are swapped only after
 successful extraction and executable discovery. Removal is restricted to the
 manager's per-user apps directory.
 
+The Ubuntu manager verifies the official AppImage before extraction. It stages
+the extracted application under the user's XDG data directory, validates its
+`AppRun` entry point, and keeps a previous version until its replacement and
+state file are committed. Removal is limited to its manager-owned app directory
+and desktop launcher.
+
 This verifies transport and publisher-provided integrity; it is not a malware
 guarantee. Community release artifacts are unsigned unless a release explicitly
 says otherwise.

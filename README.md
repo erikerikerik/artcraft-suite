@@ -1,14 +1,15 @@
 # ArtCraft Suite Manager
 
 A lightweight, independent installer and update manager for the seven open-source
-[ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
-Rust macOS Apple Silicon manager are available.
+[ArtCraft crafting apps](https://github.com/storytold). The Windows x64 manager
+is written in C#; separate macOS Apple Silicon and Ubuntu managers are written
+in Rust.
 
 > **Independent source-available project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
-## What works
+## Windows manager
 
 - Finds PhotoCraft, VectorCraft, DesignCraft, FilmCraft, EffectCraft, LightCraft,
   and PrintCraft from a readable JSON manifest.
@@ -22,7 +23,7 @@ Rust macOS Apple Silicon manager are available.
   launches installed apps, and removes only manager-owned app directories.
 - Builds a self-contained Windows x64 release artifact in GitHub Actions.
 
-## Download and run
+## Windows download and run
 
 Download `ArtCraftSuite-windows-x64.zip` from this repository's Releases page,
 extract it, and run `ArtCraftSuite.exe`. Windows may show a SmartScreen warning
@@ -33,7 +34,7 @@ The manager itself does not need administrator rights. Each creative application
 keeps its own settings and documents outside the manager-owned installation
 folder, so updating or removing an app does not intentionally remove user work.
 
-## Build locally
+## Build Windows locally
 
 Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then:
 
@@ -65,6 +66,14 @@ before mounting, and supports updates, opening, and removal. It requires no
 administrator password. See [`docs/MACOS.md`](docs/MACOS.md) for build and
 distribution instructions. The older Avalonia macOS scaffold remains in the
 repository but is not the installer.
+
+## Ubuntu Linux
+
+The Ubuntu manager is a windowed Rust application in `src/rust-linux`. A `.deb`
+adds it to the Ubuntu app menu on x86-64 or ARM64. It verifies official upstream
+AppImages, extracts them into the user's XDG data directory, and supports
+updates, opening, and removal without administrator prompts for those apps.
+See [`docs/LINUX.md`](docs/LINUX.md) for build and install instructions.
 
 ## Security and privacy
 

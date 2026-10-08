@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, linux]
   pull_request:
 
 permissions:
@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   validate:
+    if: github.ref != 'refs/heads/linux'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +25,7 @@ jobs:
       - run: dotnet build -c Release --no-restore
 
   publish-windows:
+    if: github.ref != 'refs/heads/linux'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -44,6 +46,7 @@ jobs:
           path: artifacts/ArtCraftSuite-windows-x64.zip
 
   macos-arm64:
+    if: github.ref != 'refs/heads/linux'
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -60,3 +63,50 @@ jobs:
           path: |
             artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg
             artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg.sha256
+
+  linux:
+    if: github.ref == 'refs/heads/linux' || github.event_name == 'pull_request'
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev desktop-file-utils pkg-config jq xvfb \
+            libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
+            libxkbcommon-dev libwayland-dev libgl1-mesa-dev libgl1-mesa-dri
+      - name: Test Rust installer
+        run: cargo test --locked --manifest-path src/rust-linux/Cargo.toml
+      - name: Build Ubuntu manager
+        run: cargo build --release --locked --manifest-path src/rust-linux/Cargo.toml
+      - name: Smoke test window
+        run: |
+          set +e
+          timeout 8s xvfb-run -a src/rust-linux/target/release/artcraft-suite-linux > /tmp/artcraft-window.log 2>&1
+          result=$?
+          set -e
+          if [ "$result" -ne 124 ]; then cat /tmp/artcraft-window.log; exit 1; fi
+      - name: Test a verified upstream AppImage
+        run: |
+          python3 scripts/fetch-smoke-appimage.py "${{ matrix.arch }}" /tmp/artcraft-smoke.AppImage
+          ARTCRAFT_TEST_APPIMAGE=/tmp/artcraft-smoke.AppImage cargo test --locked --manifest-path src/rust-linux/Cargo.toml -- --ignored installs_real_upstream_appimage
+      - name: Package and validate deb
+        run: |
+          bash scripts/package-linux.sh src/rust-linux/target/release/artcraft-suite-linux artifacts/linux
+          dpkg-deb --info artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
+          dpkg-deb --contents artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
+          cd artifacts/linux && sha256sum -c artcraft-suite_0.1.0_${{ matrix.arch }}.deb.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ArtCraftSuite-ubuntu-${{ matrix.arch }}
+          path: |
+            artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
+            artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb.sha256

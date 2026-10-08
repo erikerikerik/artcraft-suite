@@ -25,7 +25,7 @@ which is distributed under the MIT License, along with its transitive runtime
 dependencies. NuGet package license metadata is included in release builds by
 their respective packages.
 
-The macOS manager uses Rust crates including [eframe](https://crates.io/crates/eframe),
+The macOS and Ubuntu managers use Rust crates including [eframe](https://crates.io/crates/eframe),
 [reqwest](https://crates.io/crates/reqwest), [serde](https://crates.io/crates/serde),
 and [sha2](https://crates.io/crates/sha2). Their versions and transitive dependencies
-are recorded in `src/rust-macos/Cargo.lock`; each retains its own license.
+are recorded in their respective `Cargo.lock` files; each retains its own license.
