@@ -164,7 +164,7 @@ impl eframe::App for Manager {
             ui.horizontal(|ui| {
                 ui.heading(RichText::new("ArtCraft Suite").size(30.0).strong());
                 ui.add_space(8.0);
-                ui.label(RichText::new("for Apple Silicon").color(Color32::LIGHT_GRAY));
+                ui.label(RichText::new("for Intel & Apple Silicon").color(Color32::LIGHT_GRAY));
             });
             ui.label("Install and update the seven ArtCraft creative applications.");
             ui.add_space(10.0);

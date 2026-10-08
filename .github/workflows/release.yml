@@ -32,26 +32,29 @@ jobs:
             artifacts/ArtCraftSuite-windows-x64.zip
             artifacts/ArtCraftSuite-windows-x64.zip.sha256
 
-  macos-arm64:
+  macos-universal:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
       - name: Test and build Rust manager
         run: |
           cargo test --locked --manifest-path src/rust-macos/Cargo.toml
-          cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml
-      - name: Package Apple Silicon DMG
-        run: bash scripts/package-rust-macos.sh src/rust-macos/target/release/artcraft-suite-macos artifacts/macos-arm64 "${GITHUB_REF_NAME#v}"
+          cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml --target aarch64-apple-darwin
+          cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml --target x86_64-apple-darwin
+      - name: Package Universal DMG
+        run: bash scripts/package-rust-macos.sh src/rust-macos/target/aarch64-apple-darwin/release/artcraft-suite-macos src/rust-macos/target/x86_64-apple-darwin/release/artcraft-suite-macos artifacts/macos-universal "${GITHUB_REF_NAME#v}"
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64-release
+          name: macos-universal-release
           path: |
-            artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg
-            artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg.sha256
+            artifacts/macos-universal/ArtCraftSuite-macos-universal.dmg
+            artifacts/macos-universal/ArtCraftSuite-macos-universal.dmg.sha256
 
   release:
-    needs: [windows, macos-arm64]
+    needs: [windows, macos-universal]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

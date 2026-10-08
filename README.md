@@ -2,7 +2,7 @@
 
 A lightweight, independent installer and update manager for the seven open-source
 [ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
-Rust macOS Apple Silicon manager are available.
+Rust universal macOS manager for Intel and Apple Silicon are available.
 
 > **Independent open-source project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
@@ -57,7 +57,7 @@ declares its upstream `owner/repository` and anchored asset-name patterns. Token
 `{id}` and `{version}` are escaped before matching. A manifest change cannot bypass
 the runtime hash requirement.
 
-## macOS Apple Silicon
+## macOS Intel and Apple Silicon
 
 The macOS manager is a windowed Rust application in `src/rust-macos`. It installs
 the official universal DMGs into `~/Applications/ArtCraft Suite`, verifies SHA-256

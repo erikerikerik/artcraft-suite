@@ -2,29 +2,32 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-binary="${1:?path to the compiled Apple Silicon binary is required}"
-output_dir="${2:?output directory is required}"
-version="${3:-0.1.0}"
+arm64_binary="${1:?path to the Apple Silicon binary is required}"
+x64_binary="${2:?path to the Intel binary is required}"
+output_dir="${3:?output directory is required}"
+version="${4:-0.1.0}"
 app="$output_dir/ArtCraft Suite.app"
-image="$output_dir/ArtCraftSuite-macos-arm64.dmg"
+image="$output_dir/ArtCraftSuite-macos-universal.dmg"
 staging="$output_dir/.dmg-staging"
 
-[[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]] || { echo "Build on an Apple Silicon Mac" >&2; exit 1; }
-[[ -f "$binary" ]] || { echo "Binary not found: $binary" >&2; exit 1; }
+[[ "$(uname -s)" == "Darwin" ]] || { echo "Build on macOS" >&2; exit 1; }
+[[ -f "$arm64_binary" && -f "$x64_binary" ]] || { echo "Both architecture binaries must exist" >&2; exit 1; }
 mkdir -p "$output_dir"
 rm -rf "$app" "$staging" "$image"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$binary" "$app/Contents/MacOS/ArtCraftSuite"
+lipo -create "$arm64_binary" "$x64_binary" -output "$app/Contents/MacOS/ArtCraftSuite"
 chmod 755 "$app/Contents/MacOS/ArtCraftSuite"
+archs="$(lipo -archs "$app/Contents/MacOS/ArtCraftSuite")"
+[[ " $archs " == *" arm64 "* && " $archs " == *" x86_64 "* ]] || { echo "Expected universal binary, got: $archs" >&2; exit 1; }
 cp "$repo_root/LICENSE" "$repo_root/NOTICE" "$repo_root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 cp "$repo_root/src/rust-macos/Cargo.lock" "$app/Contents/Resources/Cargo.lock"
 cat > "$app/Contents/Resources/MODIFICATIONS.txt" <<'NOTICE'
 ArtCraft Suite Manager by erikerikerik
 https://github.com/erikerikerik/artcraft-suite
 
-This is a modified Apple Silicon edition. It adds a Rust windowed manager,
-verified macOS DMG installation, updates, opening, removal, and DMG packaging.
-See LICENSE for the terms that apply to this modified version.
+This is a modified universal macOS edition for Intel and Apple Silicon. It adds
+a Rust windowed manager, verified macOS DMG installation, updates, opening,
+removal, and DMG packaging. See LICENSE for the terms that apply to this version.
 NOTICE
 
 cat > "$app/Contents/Info.plist" <<PLIST

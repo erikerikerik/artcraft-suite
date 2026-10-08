@@ -9,7 +9,7 @@ for (const id of expected) {
   if (!app) throw new Error(`missing ${id}`);
   const expectedRepository = id === 'printcraft' ? 'storytold/pdfcraft' : `storytold/${id}`;
   if (app.repository !== expectedRepository) throw new Error(`unexpected repository for ${id}`);
-  for (const platform of ['windows-x64', 'macos-arm64']) {
+  for (const platform of ['windows-x64', 'macos-arm64', 'macos-x64']) {
     const pattern = app.assetPatterns?.[platform];
     if (!pattern?.startsWith('^') || !pattern.endsWith('$')) throw new Error(`${id} ${platform} pattern must be anchored`);
     new RegExp(pattern.replace('{id}', id).replace('{version}', '0\\.0\\.0'), 'i');

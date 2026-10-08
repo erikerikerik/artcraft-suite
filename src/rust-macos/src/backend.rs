@@ -105,9 +105,14 @@ fn client() -> Result<Client> {
 }
 
 pub fn resolve(app: &AppManifest, stable: bool) -> Result<Release> {
+    let platform = match std::env::consts::ARCH {
+        "x86_64" => "macos-x64",
+        "aarch64" => "macos-arm64",
+        arch => bail!("Unsupported macOS architecture: {arch}"),
+    };
     let template = app
         .asset_patterns
-        .get("macos-arm64")
+        .get(platform)
         .context("No macOS package rule")?;
     let url = format!(
         "https://api.github.com/repos/{}/releases?per_page=20",
@@ -404,12 +409,27 @@ fn validate_bundle(bundle: &Path, app: &AppManifest) -> Result<String> {
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'),
         "Unsafe bundle executable name"
     );
+    let executable = bundle.join("Contents/MacOS").join(&info.executable);
+    ensure!(executable.is_file(), "App executable is missing");
+    let output = Command::new("lipo")
+        .arg("-archs")
+        .arg(&executable)
+        .output()?;
     ensure!(
-        bundle
-            .join("Contents/MacOS")
-            .join(&info.executable)
-            .is_file(),
-        "App executable is missing"
+        output.status.success(),
+        "Could not inspect app executable architecture"
+    );
+    let architectures = String::from_utf8_lossy(&output.stdout);
+    let expected = match std::env::consts::ARCH {
+        "x86_64" => "x86_64",
+        "aarch64" => "arm64",
+        arch => bail!("Unsupported macOS architecture: {arch}"),
+    };
+    ensure!(
+        architectures
+            .split_whitespace()
+            .any(|arch| arch == expected),
+        "App does not contain a {expected} executable slice"
     );
     Ok(info.id)
 }
@@ -459,6 +479,7 @@ mod tests {
         assert_eq!(data.apps.len(), 7);
         for app in data.apps {
             assert!(app.asset_patterns.contains_key("macos-arm64"));
+            assert!(app.asset_patterns.contains_key("macos-x64"));
         }
     }
 
