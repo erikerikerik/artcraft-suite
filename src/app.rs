@@ -71,7 +71,7 @@ impl ArtCraftSuite {
             apps,
             icons,
             channel: "Stable".into(),
-            status: "Ready. Choose apps, then install.".into(),
+            status: "Select checkboxes to batch install or update apps.".into(),
             busy: false,
             progress: 0.0,
             install_queue: VecDeque::new(),
@@ -343,18 +343,29 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
-                        ui.add_space(3.0);
-                        ui.label(RichText::new(&self.status).size(14.0).color(Color32::WHITE));
-                        if self.busy {
-                            ui.add_space(8.0);
+                    let status_width = (ui.available_width() - 190.0).max(120.0);
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(status_width, 42.0),
+                        egui::Layout::top_down(egui::Align::Min),
+                        |ui| {
+                            ui.add_space(3.0);
                             ui.add(
-                                egui::ProgressBar::new(self.progress)
-                                    .desired_width((ui.available_width() - 180.0).max(120.0))
-                                    .desired_height(4.0),
-                            );
-                        }
-                    });
+                                egui::Label::new(
+                                    RichText::new(&self.status).size(14.0).color(Color32::WHITE),
+                                )
+                                .truncate(),
+                            )
+                            .on_hover_text(&self.status);
+                            if self.busy {
+                                ui.add_space(8.0);
+                                ui.add(
+                                    egui::ProgressBar::new(self.progress)
+                                        .desired_width(ui.available_width().max(120.0))
+                                        .desired_height(4.0),
+                                );
+                            }
+                        },
+                    );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let selected: Vec<usize> = self
                             .apps
@@ -365,7 +376,7 @@ impl ArtCraftSuite {
                         let enabled = !self.busy && !selected.is_empty();
                         let button = ui.add_enabled(
                             enabled,
-                            primary_button("Install selected", Vec2::new(140.0, 42.0)),
+                            primary_button("Install / update selected", Vec2::new(172.0, 42.0)),
                         );
                         if button.clicked() {
                             self.install_selected();
@@ -404,7 +415,8 @@ impl ArtCraftSuite {
                                         egui::Checkbox::without_text(
                                             &mut self.apps[index].selected,
                                         ),
-                                    );
+                                    )
+                                    .on_hover_text("Select for batch install or update");
                                 },
                             );
                             ui.add_space(8.0);
@@ -464,23 +476,24 @@ impl ArtCraftSuite {
                                                 );
                                             });
                                     }
+                                    let release_label = self.apps[index]
+                                        .release
+                                        .as_ref()
+                                        .map(|release| format!("Available {}", release.version))
+                                        .unwrap_or_else(|| {
+                                            if self.apps[index].error.is_some() {
+                                                "Unavailable".into()
+                                            } else {
+                                                "Checking…".into()
+                                            }
+                                        });
+                                    ui.label(
+                                        RichText::new(release_label).size(11.0).color(PURPLE),
+                                    );
                                 },
                             );
                             ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-                                ui.add_space(3.0);
-                                let release_label = self.apps[index]
-                                    .release
-                                    .as_ref()
-                                    .map(|release| format!("Available {}", release.version))
-                                    .unwrap_or_else(|| {
-                                        if self.apps[index].error.is_some() {
-                                            "Unavailable".into()
-                                        } else {
-                                            "Checking…".into()
-                                        }
-                                    });
-                                ui.label(RichText::new(release_label).size(12.0).color(PURPLE));
-                                ui.add_space(8.0);
+                                ui.add_space(24.0);
                                 ui.horizontal(|ui| {
                                     if installed {
                                         if ui

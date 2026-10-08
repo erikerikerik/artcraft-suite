@@ -2,6 +2,8 @@ use crate::model::{
     ApiAsset, ApiRelease, AppManifest, InstallState, InstalledApp, ResolvedRelease,
 };
 use regex::Regex;
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
 #[cfg(any(target_os = "windows", target_os = "macos"))]
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
@@ -11,6 +13,13 @@ use std::{
 };
 
 const USER_AGENT: &str = "ArtCraft-Suite/0.2 (+https://github.com/erikerikerik/artcraft-suite)";
+
+fn child_command(program: &str) -> Command {
+    let mut command = Command::new(program);
+    #[cfg(target_os = "windows")]
+    command.creation_flags(0x0800_0000);
+    command
+}
 
 pub fn platform_key() -> &'static str {
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
@@ -81,7 +90,7 @@ pub fn download_verified(
     mut progress: impl FnMut(f32),
 ) -> Result<(), String> {
     progress(0.05);
-    let status = Command::new(curl_program())
+    let status = child_command(curl_program())
         .args([
             "-fL",
             "--retry",
@@ -194,7 +203,7 @@ pub fn launch(installed: &InstalledApp) -> Result<(), String> {
     }
     #[cfg(target_os = "macos")]
     {
-        Command::new("open")
+        child_command("open")
             .arg(path)
             .spawn()
             .map_err(|error| format!("Could not open app: {error}"))?;
@@ -251,9 +260,12 @@ fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let staging = root.join(format!(".{}-staging-{nonce}", app.id));
-    let target = root.join(&app.id);
-    let backup = root.join(format!(".{}-previous", app.id));
+    let app_root = root.join(&app.id);
+    let versions = app_root.join("versions");
+    fs::create_dir_all(&versions)
+        .map_err(|error| format!("Could not create version directory: {error}"))?;
+    let staging = versions.join(format!(".staging-{nonce}"));
+    let target = versions.join(format!("release-{nonce}"));
     fs::create_dir_all(&staging).map_err(|error| format!("Could not stage app: {error}"))?;
     let result = (|| {
         extract_zip_safely(package, &staging)?;
@@ -268,24 +280,8 @@ fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             .strip_prefix(&staging)
             .map_err(|_| "Invalid executable path".to_owned())?
             .to_owned();
-        if backup.exists() {
-            fs::remove_dir_all(&backup)
-                .map_err(|error| format!("Could not clear backup: {error}"))?;
-        }
-        if target.exists() {
-            fs::rename(&target, &backup)
-                .map_err(|error| format!("Could not stage previous version: {error}"))?;
-        }
-        if let Err(error) = fs::rename(&staging, &target) {
-            if backup.exists() {
-                let _ = fs::rename(&backup, &target);
-            }
-            return Err(format!("Could not activate app: {error}"));
-        }
-        if backup.exists() {
-            fs::remove_dir_all(&backup)
-                .map_err(|error| format!("Could not remove backup: {error}"))?;
-        }
+        fs::rename(&staging, &target)
+            .map_err(|error| format!("Could not activate app: {error}"))?;
         Ok(target.join(relative))
     })();
     if staging.exists() {
@@ -310,7 +306,7 @@ try {
   }
 } finally { $archive.Dispose() }
 "#;
-    let output = Command::new("powershell.exe")
+    let output = child_command("powershell.exe")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .arg(package)
         .arg(destination)
@@ -333,7 +329,7 @@ fn curl_program() -> &'static str {
 }
 
 fn curl_bytes(url: &str) -> Result<Vec<u8>, String> {
-    let output = Command::new(curl_program())
+    let output = child_command(curl_program())
         .args([
             "-fsSL",
             "--retry",
@@ -357,7 +353,7 @@ fn curl_bytes(url: &str) -> Result<Vec<u8>, String> {
 
 fn sha256_file(path: &Path) -> Result<String, String> {
     #[cfg(target_os = "windows")]
-    let output = Command::new("powershell.exe")
+    let output = child_command("powershell.exe")
         .args([
             "-NoProfile",
             "-NonInteractive",
@@ -368,7 +364,7 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         .output()
         .map_err(|error| format!("Could not verify package: {error}"))?;
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new("shasum")
+    let output = child_command("shasum")
         .args(["-a", "256"])
         .arg(path)
         .output()
@@ -419,7 +415,7 @@ fn find_executable(directory: &Path, accepted_stems: &[&str]) -> Option<PathBuf>
 
 #[cfg(target_os = "macos")]
 fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
-    let output = Command::new("hdiutil")
+    let output = child_command("hdiutil")
         .args(["attach", "-nobrowse", "-readonly"])
         .arg(package)
         .output()
@@ -459,7 +455,7 @@ fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             fs::remove_dir_all(&target)
                 .map_err(|error| format!("Could not replace app: {error}"))?;
         }
-        let status = Command::new("ditto")
+        let status = child_command("ditto")
             .arg(&source)
             .arg(&target)
             .status()
@@ -469,7 +465,10 @@ fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             .then_some(target)
             .ok_or_else(|| "Could not copy app bundle".to_owned())
     })();
-    let _ = Command::new("hdiutil").arg("detach").arg(&mount).status();
+    let _ = child_command("hdiutil")
+        .arg("detach")
+        .arg(&mount)
+        .status();
     result
 }
 
