@@ -18,7 +18,7 @@ mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/share/applications" \
   "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/doc/artcraft-suite"
 install -m 755 "$binary" "$stage/usr/bin/artcraft-suite"
 install -m 644 "$repo_root/assets/artcraft-suite.svg" "$stage/usr/share/icons/hicolor/scalable/apps/artcraft-suite.svg"
-install -m 644 "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES.md" "$stage/usr/share/doc/artcraft-suite/"
+install -m 644 "$repo_root/LICENSE" "$repo_root/NOTICE" "$repo_root/THIRD_PARTY_NOTICES.md" "$stage/usr/share/doc/artcraft-suite/"
 install -m 644 "$repo_root/src/rust-linux/Cargo.lock" "$stage/usr/share/doc/artcraft-suite/Cargo.lock"
 cat > "$stage/usr/share/doc/artcraft-suite/MODIFICATIONS" <<'NOTICE'
 ArtCraft Suite Manager by erikerikerik

@@ -16,7 +16,7 @@ rm -rf "$app" "$staging" "$image"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$binary" "$app/Contents/MacOS/ArtCraftSuite"
 chmod 755 "$app/Contents/MacOS/ArtCraftSuite"
-cp "$repo_root/LICENSE" "$repo_root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
+cp "$repo_root/LICENSE" "$repo_root/NOTICE" "$repo_root/THIRD_PARTY_NOTICES.md" "$app/Contents/Resources/"
 cp "$repo_root/src/rust-macos/Cargo.lock" "$app/Contents/Resources/Cargo.lock"
 cat > "$app/Contents/Resources/MODIFICATIONS.txt" <<'NOTICE'
 ArtCraft Suite Manager by erikerikerik
