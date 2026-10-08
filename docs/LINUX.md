@@ -17,7 +17,7 @@ bash scripts/package-linux.sh \
   src/rust-linux/target/release/artcraft-suite-linux artifacts/linux
 ```
 
-Install `artcraft-suite_0.1.0_amd64.deb` or the ARM64 equivalent by opening it
+Install `artcraft-suite_<version>_amd64.deb` or the ARM64 equivalent by opening it
 in Ubuntu's package installer. Launch **ArtCraft Suite** from the app menu.
 
 Installed apps live under `$XDG_DATA_HOME/artcraft-suite/apps` (normally
