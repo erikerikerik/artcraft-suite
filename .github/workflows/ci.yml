@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, csharp-v0.3, rust-0.2]
   pull_request:
 
 permissions:
@@ -22,6 +22,7 @@ jobs:
       - run: node scripts/validate-manifest.mjs
       - run: dotnet restore
       - run: dotnet build -c Release --no-restore
+      - run: dotnet run --project tests/ArtCraftSuite.Tests -c Release --no-build
 
   publish-windows:
     runs-on: windows-latest

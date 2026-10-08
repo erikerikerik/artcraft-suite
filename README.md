@@ -1,6 +1,6 @@
 # ArtCraft Suite Manager
 
-A lightweight, independent installer and update manager for the seven open-source
+A lightweight, independent installer and update manager for the seven
 [ArtCraft crafting apps](https://github.com/storytold). The first supported target
 is Windows x64; a macOS Apple Silicon build scaffold is included.
 
@@ -12,6 +12,8 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
 
 - Finds PhotoCraft, VectorCraft, DesignCraft, FilmCraft, EffectCraft, LightCraft,
   and PrintCraft from a readable JSON manifest.
+- Shows official upstream application icons with their source and license
+  provenance preserved under [`assets/icons`](assets/icons/README.md).
 - Offers **Stable** (newest non-prerelease) and **Latest** (newest release,
   including prereleases) channels.
 - Installs official Windows x64 portable packages per-user, with no administrator
@@ -21,6 +23,7 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
 - Stages updates before swapping directories, defends against ZIP path traversal,
   launches installed apps, and removes only manager-owned app directories.
 - Builds a self-contained Windows x64 release artifact in GitHub Actions.
+- Handles PrintCraft releases whose package and executable are named `pdfcraft`.
 
 ## Download and run
 
@@ -40,6 +43,7 @@ Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then
 ```powershell
 dotnet restore
 dotnet build -c Release
+dotnet run --project tests/ArtCraftSuite.Tests -c Release
 dotnet run --project src/ArtCraftSuite
 ```
 
@@ -57,13 +61,16 @@ declares its upstream `owner/repository` and anchored asset-name patterns. Token
 `{id}` and `{version}` are escaped before matching. A manifest change cannot bypass
 the runtime hash requirement.
 
-## macOS Apple Silicon status
+## C# production and Rust status
 
-The Avalonia UI and release resolver compile for `osx-arm64`, and the manifest
-selects the official universal DMGs. The workflow packages an unsigned `.app`
-scaffold for testing. Automatic DMG mounting/copying, code signing, notarization,
-and polished distribution are intentionally not claimed as complete yet. On macOS,
-the manager reports this limitation instead of attempting a partial install.
+The production Windows line is C# / Avalonia on the `csharp-v0.3` branch. The
+native Rust v0.2 implementation, including its macOS ARM64 installer, remains
+active on `rust-0.2`. It is intentionally allowed to trail the production C#
+feature set while v0.3 is stabilized; fixes can be ported after they are proven
+on Windows. Do not delete or rewrite the Rust branch when promoting C# releases.
+
+The C# project still compiles an unsigned macOS ARM64 scaffold, but automatic DMG
+installation belongs to the Rust line until it is deliberately ported.
 
 See [`docs/MACOS.md`](docs/MACOS.md) for the completion plan.
 

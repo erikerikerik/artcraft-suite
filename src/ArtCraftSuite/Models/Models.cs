@@ -11,8 +11,13 @@ public sealed record AppManifest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("description")] string Description,
     [property: JsonPropertyName("repository")] string Repository,
+    [property: JsonPropertyName("packageId")] string? PackageId,
     [property: JsonPropertyName("accent")] string Accent,
-    [property: JsonPropertyName("assetPatterns")] Dictionary<string, string> AssetPatterns);
+    [property: JsonPropertyName("assetPatterns")] Dictionary<string, string> AssetPatterns)
+{
+    [JsonIgnore]
+    public string EffectivePackageId => string.IsNullOrWhiteSpace(PackageId) ? Id : PackageId;
+}
 
 public sealed record GitHubRelease(string TagName, bool Draft, bool Prerelease, IReadOnlyList<GitHubAsset> Assets);
 

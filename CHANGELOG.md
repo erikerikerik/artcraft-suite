@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 — in development
+
+### Added
+
+- Restored the proven C# / Avalonia production application while preserving the
+  native Rust v0.2 line on its own branch.
+- Added official upstream icons with complete license and provenance records.
+- Added an API-independent fallback for stable GitHub releases and automated
+  tests for release parsing, package aliases, safe extraction, and installation.
+
+### Fixed
+
+- Recognizes PrintCraft releases and executables published under the `pdfcraft`
+  package name.
+- Makes the two-column application card area vertically scrollable.
+- Verifies both SHA-256 and expected download length, removes failed downloads,
+  and retains transactional directory/state rollback during updates.
+- Rejects ZIP path traversal, symbolic links, excessive entry counts, and archives
+  that declare more than 16 GiB of extracted data.
+
 ## 0.1.1 — 2026-10-07
 
 Hotfix release.

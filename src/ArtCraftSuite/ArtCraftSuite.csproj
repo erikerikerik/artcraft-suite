@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>ArtCraftSuite</AssemblyName>
     <RootNamespace>ArtCraftSuite</RootNamespace>
-    <Version>0.1.1</Version>
+    <Version>0.3.0</Version>
     <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <AvaloniaResource Include="Assets/**" />
+    <AvaloniaResource Include="..\..\assets\icons\*.png" Link="Assets\icons\%(Filename)%(Extension)" />
     <None Include="..\..\manifest\apps.json" Link="manifest\apps.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\NOTICE" Link="NOTICE" CopyToOutputDirectory="PreserveNewest" />

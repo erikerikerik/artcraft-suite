@@ -8,10 +8,17 @@ namespace ArtCraftSuite.Services;
 public sealed class PortableInstallerService
 {
     public const string UnknownVersion = "unknown";
-    private readonly string _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArtCraftSuite");
+    internal const long MaxExtractedBytes = 16L * 1024 * 1024 * 1024;
+    internal const int MaxArchiveEntries = 100_000;
+    private readonly string _root;
     private string StatePath => Path.Combine(_root, "state.json");
     private string AppsRoot => Path.Combine(_root, "apps");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
+
+    public PortableInstallerService(string? root = null)
+    {
+        _root = root ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArtCraftSuite");
+    }
 
     /// <summary>
     /// Loads install state. If state.json is missing or cannot be parsed, a damaged file is kept aside and
@@ -60,15 +67,13 @@ public sealed class PortableInstallerService
         Directory.CreateDirectory(AppsRoot);
         var target = Path.Combine(AppsRoot, app.Id);
         var staging = Path.Combine(AppsRoot, $".{app.Id}-staging-{Guid.NewGuid():N}");
-        var backup = target + ".previous";
+        var backup = Path.Combine(AppsRoot, $".{app.Id}-previous-{Guid.NewGuid():N}");
         Directory.CreateDirectory(staging);
         try
         {
             await Task.Run(() => ExtractSafely(archive, staging, ct), ct);
-            var executable = Directory.EnumerateFiles(staging, "*.exe", SearchOption.AllDirectories)
-                .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
-                .FirstOrDefault(x => Path.GetFileNameWithoutExtension(x).Equals(app.Id, StringComparison.OrdinalIgnoreCase))
-                ?? throw new InvalidDataException($"The verified archive did not contain {app.Id}.exe.");
+            var executable = FindExecutable(staging, app.EffectivePackageId, app.Id)
+                ?? throw new InvalidDataException($"The verified archive did not contain {app.EffectivePackageId}.exe.");
             var relativeExecutable = Path.GetRelativePath(staging, executable);
             var state = LoadState();
             var installed = new InstalledApp(app.Id, release.Version, Path.Combine(target, relativeExecutable), release.Asset.Name, release.Sha256, DateTimeOffset.UtcNow);
@@ -76,7 +81,6 @@ public sealed class PortableInstallerService
             // Past this point the swap must not be interrupted half-way.
             ct.ThrowIfCancellationRequested();
             ThrowIfRunning(app.Id, app.Name, target);
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
             if (Directory.Exists(target))
             {
                 try { Directory.Move(target, backup); }
@@ -174,11 +178,12 @@ public sealed class PortableInstallerService
         {
             var id = Path.GetFileName(dir);
             if (id.StartsWith('.') || id.EndsWith(".previous", StringComparison.OrdinalIgnoreCase)) continue;
-            var exe = Directory.EnumerateFiles(dir, "*.exe", SearchOption.AllDirectories)
+            var exe = FindExecutable(dir, id) ?? Directory.EnumerateFiles(dir, "*.exe", SearchOption.AllDirectories)
                 .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
-                .FirstOrDefault(x => Path.GetFileNameWithoutExtension(x).Equals(id, StringComparison.OrdinalIgnoreCase));
+                .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
             if (exe is null) continue;
-            state.Apps[id] = new InstalledApp(id, UnknownVersion, exe, string.Empty, string.Empty, Directory.GetLastWriteTimeUtc(dir));
+            state.Apps[id] = new InstalledApp(id, DetectVersion(exe), exe, string.Empty, string.Empty, Directory.GetLastWriteTimeUtc(dir));
         }
         return state;
     }
@@ -219,14 +224,33 @@ public sealed class PortableInstallerService
     {
         Directory.CreateDirectory(_root);
         var temp = StatePath + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(state, JsonOptions));
-        File.Move(temp, StatePath, true);
+        try
+        {
+            File.WriteAllText(temp, JsonSerializer.Serialize(state, JsonOptions));
+            File.Move(temp, StatePath, true);
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+        }
     }
 
-    private static void ExtractSafely(string archive, string destination, CancellationToken ct)
+    internal static void ExtractSafely(string archive, string destination, CancellationToken ct)
     {
         var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         using var zip = ZipFile.OpenRead(archive);
+        if (zip.Entries.Count > MaxArchiveEntries)
+            throw new InvalidDataException($"Archive contains too many entries ({zip.Entries.Count:N0}).");
+        long totalLength = 0;
+        foreach (var entry in zip.Entries)
+        {
+            if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
+                throw new InvalidDataException("Archive contains a symbolic link, which is not allowed.");
+            try { totalLength = checked(totalLength + entry.Length); }
+            catch (OverflowException) { throw new InvalidDataException("Archive declares an invalid extracted size."); }
+            if (totalLength > MaxExtractedBytes)
+                throw new InvalidDataException($"Archive expands beyond the {MaxExtractedBytes / (1024 * 1024 * 1024)} GiB safety limit.");
+        }
         foreach (var entry in zip.Entries)
         {
             ct.ThrowIfCancellationRequested();
@@ -236,5 +260,26 @@ public sealed class PortableInstallerService
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             entry.ExtractToFile(path, true);
         }
+    }
+
+    private static string? FindExecutable(string directory, params string[] acceptedStems)
+    {
+        var accepted = acceptedStems.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Directory.EnumerateFiles(directory, "*.exe", SearchOption.AllDirectories)
+            .Where(x => accepted.Contains(Path.GetFileNameWithoutExtension(x)))
+            .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
+            .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault();
+    }
+
+    private static string DetectVersion(string executable)
+    {
+        try
+        {
+            var info = FileVersionInfo.GetVersionInfo(executable);
+            var candidate = info.ProductVersion ?? info.FileVersion;
+            return string.IsNullOrWhiteSpace(candidate) ? UnknownVersion : candidate.Split('+')[0];
+        }
+        catch { return UnknownVersion; }
     }
 }

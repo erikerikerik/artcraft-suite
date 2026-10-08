@@ -54,6 +54,7 @@
       "name": "PrintCraft",
       "description": "PDF viewing and editing",
       "repository": "storytold/printcraft",
+      "packageId": "pdfcraft",
       "accent": "#D24B4B",
       "assetPatterns": { "windows-x64": "^{id}-{version}-windows-x64-portable\\.zip$", "macos-arm64": "^{id}-{version}-macos-universal\\.dmg$" }
     }

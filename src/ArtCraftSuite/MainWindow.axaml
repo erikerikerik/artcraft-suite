@@ -23,7 +23,8 @@
 
     <Grid Grid.Row="1" Margin="23,12" RowDefinitions="Auto,*">
         <TextBlock Text="APPLICATIONS" FontSize="12" FontWeight="Bold" Foreground="#72798D" LetterSpacing="1.5" Margin="5,0,0,5" />
-        <ItemsControl Grid.Row="1" ItemsSource="{Binding Apps}">
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <ItemsControl ItemsSource="{Binding Apps}">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <UniformGrid Columns="2" />
@@ -34,8 +35,8 @@
               <Border Classes="card" Margin="5" Background="{Binding CardBackground}" BorderBrush="{Binding CardBorder}" ToolTip.Tip="{Binding Error}">
                 <Grid ColumnDefinitions="Auto,54,*,Auto" RowDefinitions="Auto,Auto">
                   <CheckBox Grid.Column="0" Grid.RowSpan="2" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                  <Border Grid.Column="1" Grid.RowSpan="2" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Initials}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" Foreground="White" />
+                  <Border Grid.Column="1" Grid.RowSpan="2" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center" ClipToBounds="True">
+                    <Image Source="{Binding IconUri}" Width="44" Height="44" Stretch="UniformToFill" />
                   </Border>
                   <StackPanel Grid.Column="2" Grid.RowSpan="2" Margin="8,0,10,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
@@ -58,6 +59,7 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+      </ScrollViewer>
     </Grid>
 
     <Border Grid.Row="2" Background="#12141E" Padding="28,16" BorderBrush="#292C3A" BorderThickness="0,1,0,0">

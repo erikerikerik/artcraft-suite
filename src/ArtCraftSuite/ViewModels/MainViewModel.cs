@@ -220,7 +220,7 @@ public sealed class AppItemViewModel : ObservableObject
     public string Name => Manifest.Name;
     public string Description => Manifest.Description;
     public string Accent => Manifest.Accent;
-    public string Initials => string.Concat(Name.Where(char.IsUpper).Take(2));
+    public string IconUri => $"avares://ArtCraftSuite/Assets/icons/{Manifest.Id}.png";
     public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
     public InstalledApp? Installed { get => _installed; set { if (Set(ref _installed, value)) RaiseStatus(); } }
     public ResolvedRelease? Release { get => _release; set { if (Set(ref _release, value)) RaiseStatus(); } }
