@@ -1,10 +1,10 @@
 # ArtCraft Suite Manager
 
-A lightweight, independent installer and update manager for the seven open-source
-[ArtCraft crafting apps](https://github.com/storytold). The first supported target
-is Windows x64; a macOS Apple Silicon build scaffold is included.
+A lightweight, independent Rust installer and update manager for the seven
+[ArtCraft creative apps](https://github.com/storytold). One codebase builds for
+Windows x64 and macOS Apple Silicon.
 
-> **Independent open-source project:** this repository is not maintained, sponsored, or endorsed
+> **Independent source-available project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
@@ -12,6 +12,8 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
 
 - Finds PhotoCraft, VectorCraft, DesignCraft, FilmCraft, EffectCraft, LightCraft,
   and PrintCraft from a readable JSON manifest.
+- Shows each application's official upstream icon, with the original icon licence
+  and provenance preserved under [`assets/icons`](assets/icons/README.md).
 - Offers **Stable** (newest non-prerelease) and **Latest** (newest release,
   including prereleases) channels.
 - Installs official Windows x64 portable packages per-user, with no administrator
@@ -20,7 +22,9 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
   release-asset digest and falls back to the upstream `SHA256SUMS.txt` file.
 - Stages updates before swapping directories, defends against ZIP path traversal,
   launches installed apps, and removes only manager-owned app directories.
-- Builds a self-contained Windows x64 release artifact in GitHub Actions.
+- Mounts verified macOS DMGs read-only, copies the `.app` into the manager-owned
+  per-user app directory, and detaches the image.
+- Builds native Windows x64 and macOS ARM64 release artifacts in GitHub Actions.
 
 ## Download and run
 
@@ -35,19 +39,17 @@ folder, so updating or removing an app does not intentionally remove user work.
 
 ## Build locally
 
-Install the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0), then:
+Install the current stable [Rust toolchain](https://rustup.rs/), then:
 
 ```powershell
-dotnet restore
-dotnet build -c Release
-dotnet run --project src/ArtCraftSuite
+cargo test --locked
+cargo run --release
 ```
 
-Publish the same self-contained Windows build produced by CI:
+Build the same native Windows executable produced by CI:
 
 ```powershell
-dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r win-x64 \
-  --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+cargo build --release --locked --target x86_64-pc-windows-msvc
 ```
 
 ## Manifest
@@ -59,11 +61,11 @@ the runtime hash requirement.
 
 ## macOS Apple Silicon status
 
-The Avalonia UI and release resolver compile for `osx-arm64`, and the manifest
-selects the official universal DMGs. The workflow packages an unsigned `.app`
-scaffold for testing. Automatic DMG mounting/copying, code signing, notarization,
-and polished distribution are intentionally not claimed as complete yet. On macOS,
-the manager reports this limitation instead of attempting a partial install.
+The shared Rust code builds for `aarch64-apple-darwin`, selects the official
+universal DMGs, verifies them, and installs their app bundle into the same
+manager-owned data model used on Windows. The GitHub artifact remains unsigned;
+code signing, notarization, and hands-on Apple Silicon testing are still required
+before calling it a polished public macOS release.
 
 See [`docs/MACOS.md`](docs/MACOS.md) for the completion plan.
 
@@ -82,8 +84,12 @@ license.
 
 ## License
 
-ArtCraft Suite Manager is licensed under the Apache License, Version 2.0.
-See [`LICENSE`](LICENSE) for the terms and [`NOTICE`](NOTICE) for attribution.
+ArtCraft Suite Manager may be used, modified, and redistributed for personal,
+non-commercial purposes with prominent source credit. Commercial use is prohibited
+unless separately approved and licensed in writing by the original author. See
+[`LICENSE`](LICENSE) for the complete terms.
+
+This restriction means the manager is **source-available, not OSI open source**.
 The upstream ArtCraft applications and other dependencies keep their own licenses
 and attributions, listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 

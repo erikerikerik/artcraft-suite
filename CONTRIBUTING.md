@@ -2,13 +2,15 @@
 
 Thank you for helping improve ArtCraft Suite Manager.
 
-By intentionally submitting a contribution for inclusion, you agree to its
-submission under the Apache License, Version 2.0, unless you state otherwise.
-You retain copyright in your contribution. See [`LICENSE`](LICENSE).
+By intentionally submitting a contribution for inclusion, you agree to the
+contribution terms in [`LICENSE`](LICENSE), including the Project Author's right
+to relicense that contribution as part of the Software. You retain copyright in
+your contribution.
 
 1. Open an issue before a large behavior or manifest change.
 2. Create a focused branch and keep upstream application binaries out of Git.
-3. Run `dotnet build -c Release` and `node scripts/validate-manifest.mjs`.
+3. Run `cargo fmt --check`, `cargo test --locked`, `cargo clippy --locked -- -D warnings`,
+   and `node scripts/validate-manifest.mjs`.
 4. Explain user-facing and security implications in the pull request.
 
 Asset patterns must be anchored, platform-specific, and narrow enough to avoid

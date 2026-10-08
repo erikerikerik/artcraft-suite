@@ -1,31 +1,52 @@
-# Publishing a release
+# Publishing to GitHub
 
-Releases are built by GitHub Actions. No binaries or upstream applications are
-committed to the repository.
+No generated binaries or upstream applications need to be committed. Start from
+the source archive, then publish the repository and let GitHub Actions build the
+artifacts.
 
-## Before tagging
+## GitHub CLI
 
-1. Update `<Version>` in `src/ArtCraftSuite/ArtCraftSuite.csproj` and the two
-   version strings in `scripts/package-macos.sh`.
-2. Add an entry to [`CHANGELOG.md`](CHANGELOG.md).
-3. Push to `main` and wait for the `CI` workflow to go green.
-
-## Tag the release
-
-Use semantic versioning: bump the patch number for fixes (`v0.1.0` → `v0.1.1`),
-the minor number for new features (`v0.2.0`). A tag containing a hyphen, such as
-`v0.2.0-rc.1`, is published as a prerelease.
-
-From a clone:
+Replace `YOURNAME` and choose `--public` or `--private`:
 
 ```powershell
-git tag -a v0.1.1 -m "ArtCraft Suite Manager 0.1.1"
-git push origin v0.1.1
+Expand-Archive .\ArtCraftSuite-source.zip .\artcraft-suite
+Set-Location .\artcraft-suite
+git init
+git add .
+git commit -m "Initial ArtCraft Suite Manager"
+git branch -M main
+gh auth login
+gh repo create YOURNAME/artcraft-suite --public --source . --remote origin --push
 ```
 
-Or on GitHub: **Releases → Draft a new release**, type the new tag (for example
-`v0.1.1`), choose **Create new tag on publish** targeting `main`, and publish.
+The CI workflow will build Windows x64 and the unsigned macOS ARM64 preview.
 
-Either way, the `Release` workflow builds the Windows x64 package and the clearly
-labeled unsigned macOS ARM scaffold, writes SHA-256 files for both, and attaches
-them to the GitHub Release. Review the release notes before announcing it.
+## GitHub website plus Git
+
+1. Create an empty repository named `artcraft-suite` on GitHub. Do not add a
+   README, license, or `.gitignore` there because this project already has them.
+2. Run:
+
+```powershell
+Expand-Archive .\ArtCraftSuite-source.zip .\artcraft-suite
+Set-Location .\artcraft-suite
+git init
+git add .
+git commit -m "Initial ArtCraft Suite Manager"
+git branch -M main
+git remote add origin https://github.com/YOURNAME/artcraft-suite.git
+git push -u origin main
+```
+
+## Create the first release
+
+After the `CI` workflow is green:
+
+```powershell
+git tag -a v0.2.0 -m "ArtCraft Suite Manager 0.2.0 — Rust rebuild"
+git push origin v0.2.0
+```
+
+The `Release` workflow builds, checksums, and attaches the Windows x64 package
+and the clearly labeled unsigned macOS ARM64 preview to a GitHub Release. Review
+the generated release notes before announcing it.

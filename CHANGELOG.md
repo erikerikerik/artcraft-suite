@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.2.0 — 2026-10-08
+
+Rust rewrite release.
+
+### Added
+
+- Rebuilt the manager as a native Rust application using `eframe`/`egui`, with
+  one shared codebase for Windows x64 and macOS Apple Silicon.
+- Added the seven official upstream application icons to the existing two-column
+  interface, with icon provenance and upstream license copies under `assets/icons`.
+- Added macOS ARM64 install, update, remove, and launch support for verified DMGs.
+
+### Changed
+
+- Preserved the existing compact two-column UI while replacing the C#/Avalonia
+  implementation and .NET build pipeline.
+- GitHub Actions now builds and packages native Rust artifacts for Windows x64
+  and macOS ARM64.
+- Changed the manager license from Apache-2.0 to the ArtCraft Suite Manager
+  Personal Use License 1.0. Upstream apps, icons, and dependencies retain their
+  own licenses.
+
 ## 0.1.1 — 2026-10-07
 
 Hotfix release.

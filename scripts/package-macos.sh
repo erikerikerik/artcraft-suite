@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-publish_dir="${1:?publish directory is required}"
+binary="${1:?compiled ArtCraftSuite binary is required}"
 app_dir="${2:?app directory is required}"
 
 mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
-cp -R "$publish_dir"/* "$app_dir/Contents/MacOS/"
+cp "$binary" "$app_dir/Contents/MacOS/ArtCraftSuite"
 chmod +x "$app_dir/Contents/MacOS/ArtCraftSuite"
 
 cat > "$app_dir/Contents/Info.plist" <<'PLIST'
@@ -15,8 +15,8 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key><string>ArtCraft Suite</string>
   <key>CFBundleDisplayName</key><string>ArtCraft Suite</string>
   <key>CFBundleIdentifier</key><string>community.artcraft.suite</string>
-  <key>CFBundleVersion</key><string>0.1.1</string>
-  <key>CFBundleShortVersionString</key><string>0.1.1</string>
+  <key>CFBundleVersion</key><string>0.2.0</string>
+  <key>CFBundleShortVersionString</key><string>0.2.0</string>
   <key>CFBundleExecutable</key><string>ArtCraftSuite</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>

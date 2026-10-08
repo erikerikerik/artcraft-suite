@@ -12,17 +12,16 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
-          dotnet-version: 8.0.x
-      - name: Publish
-        run: >-
-          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r win-x64
-          --self-contained true -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows-x64
+          targets: x86_64-pc-windows-msvc
+      - run: cargo build --release --locked --target x86_64-pc-windows-msvc
       - name: Package and checksum
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force artifacts/windows-x64 | Out-Null
+          Copy-Item target/x86_64-pc-windows-msvc/release/ArtCraftSuite.exe artifacts/windows-x64/
+          Copy-Item LICENSE,THIRD_PARTY_NOTICES.md artifacts/windows-x64/
           Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/ArtCraftSuite-windows-x64.zip
           (Get-FileHash artifacts/ArtCraftSuite-windows-x64.zip -Algorithm SHA256).Hash.ToLower() + '  ArtCraftSuite-windows-x64.zip' | Set-Content artifacts/ArtCraftSuite-windows-x64.zip.sha256
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -32,28 +31,28 @@ jobs:
             artifacts/ArtCraftSuite-windows-x64.zip
             artifacts/ArtCraftSuite-windows-x64.zip.sha256
 
-  macos-scaffold:
+  macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
-          dotnet-version: 8.0.x
-      - name: Publish and package unsigned scaffold
+          targets: aarch64-apple-darwin
+      - name: Build and package unsigned preview
         run: |
-          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/macos-arm64/publish
-          bash scripts/package-macos.sh artifacts/macos-arm64/publish artifacts/macos-arm64/ArtCraftSuite.app
+          cargo build --release --locked --target aarch64-apple-darwin
+          bash scripts/package-macos.sh target/aarch64-apple-darwin/release/ArtCraftSuite artifacts/macos-arm64/ArtCraftSuite.app
           ditto -c -k --sequesterRsrc --keepParent artifacts/macos-arm64/ArtCraftSuite.app artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
           shasum -a 256 artifacts/ArtCraftSuite-macos-arm64-unsigned.zip > artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: macos-scaffold-release
+          name: macos-release
           path: |
             artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
             artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
 
   release:
-    needs: [windows, macos-scaffold]
+    needs: [windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
