@@ -2,13 +2,13 @@ use crate::model::{
     ApiAsset, ApiRelease, AppManifest, InstallState, InstalledApp, ResolvedRelease,
 };
 use regex::Regex;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
 };
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-use std::time::{SystemTime, UNIX_EPOCH};
 
 const USER_AGENT: &str = "ArtCraft-Suite/0.2 (+https://github.com/erikerikerik/artcraft-suite)";
 

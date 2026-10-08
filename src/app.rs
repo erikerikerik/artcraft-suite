@@ -263,9 +263,7 @@ impl ArtCraftSuite {
                     }
                 }
             }
-            if continue_install_queue
-                && let Some(index) = self.install_queue.pop_front()
-            {
+            if continue_install_queue && let Some(index) = self.install_queue.pop_front() {
                 self.install_one(index);
             }
             ctx.request_repaint();
