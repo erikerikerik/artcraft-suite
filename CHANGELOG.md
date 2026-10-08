@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.1 — 2026-10-08
+
+### Fixed
+
+- Prevented installed-app action buttons from crowding card titles and version
+  details at normal window widths.
+- Added bottom scroll clearance so the final application card is not obscured by
+  the status and batch-action footer.
+- Embedded application artwork directly in the Avalonia resource bundle so icons
+  render instead of falling back to solid accent tiles.
+- Migrates legacy Rust v0.2 `launchPath` and Unix timestamp install records to the
+  v0.3 state format, preventing false **Repair needed** warnings after upgrading.
+
 ## 0.3.0 — 2026-10-08
 
 ### Added

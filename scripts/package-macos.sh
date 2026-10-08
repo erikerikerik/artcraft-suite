@@ -15,8 +15,8 @@ cat > "$app_dir/Contents/Info.plist" <<'PLIST'
   <key>CFBundleName</key><string>ArtCraft Suite</string>
   <key>CFBundleDisplayName</key><string>ArtCraft Suite</string>
   <key>CFBundleIdentifier</key><string>community.artcraft.suite</string>
-  <key>CFBundleVersion</key><string>0.3.0</string>
-  <key>CFBundleShortVersionString</key><string>0.3.0</string>
+  <key>CFBundleVersion</key><string>0.3.1</string>
+  <key>CFBundleShortVersionString</key><string>0.3.1</string>
   <key>CFBundleExecutable</key><string>ArtCraftSuite</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
