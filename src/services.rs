@@ -39,10 +39,7 @@ pub fn resolve_release(
         .into_iter()
         .find(|release| !release.draft && (channel != "Stable" || !release.prerelease))
         .ok_or_else(|| format!("{} has no {} release", app.name, channel.to_lowercase()))?;
-    let version = release
-        .tag_name
-        .trim_start_matches(['v', 'V'])
-        .to_owned();
+    let version = release.tag_name.trim_start_matches(['v', 'V']).to_owned();
     let template = app
         .asset_patterns
         .get(platform)
@@ -182,7 +179,9 @@ pub fn uninstall(id: &str) -> Result<(), String> {
 pub fn launch(installed: &InstalledApp) -> Result<(), String> {
     let path = Path::new(&installed.launch_path);
     if !path.exists() {
-        return Err("The installed application is missing; reinstall it to repair the entry".into());
+        return Err(
+            "The installed application is missing; reinstall it to repair the entry".into(),
+        );
     }
     #[cfg(target_os = "macos")]
     {
@@ -237,7 +236,8 @@ fn read_checksum_asset(assets: &[ApiAsset], file_name: &str) -> Result<Option<St
 #[cfg(target_os = "windows")]
 fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
     let root = apps_root();
-    fs::create_dir_all(&root).map_err(|error| format!("Could not create app directory: {error}"))?;
+    fs::create_dir_all(&root)
+        .map_err(|error| format!("Could not create app directory: {error}"))?;
     let nonce = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -248,17 +248,24 @@ fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
     fs::create_dir_all(&staging).map_err(|error| format!("Could not stage app: {error}"))?;
     let result = (|| {
         extract_zip_safely(package, &staging)?;
-        let executable = find_executable(&staging, &[app.package_id(), &app.id])
-            .ok_or_else(|| format!("The verified archive did not contain {}.exe", app.package_id()))?;
+        let executable =
+            find_executable(&staging, &[app.package_id(), &app.id]).ok_or_else(|| {
+                format!(
+                    "The verified archive did not contain {}.exe",
+                    app.package_id()
+                )
+            })?;
         let relative = executable
             .strip_prefix(&staging)
             .map_err(|_| "Invalid executable path".to_owned())?
             .to_owned();
         if backup.exists() {
-            fs::remove_dir_all(&backup).map_err(|error| format!("Could not clear backup: {error}"))?;
+            fs::remove_dir_all(&backup)
+                .map_err(|error| format!("Could not clear backup: {error}"))?;
         }
         if target.exists() {
-            fs::rename(&target, &backup).map_err(|error| format!("Could not stage previous version: {error}"))?;
+            fs::rename(&target, &backup)
+                .map_err(|error| format!("Could not stage previous version: {error}"))?;
         }
         if let Err(error) = fs::rename(&staging, &target) {
             if backup.exists() {
@@ -267,7 +274,8 @@ fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             return Err(format!("Could not activate app: {error}"));
         }
         if backup.exists() {
-            fs::remove_dir_all(&backup).map_err(|error| format!("Could not remove backup: {error}"))?;
+            fs::remove_dir_all(&backup)
+                .map_err(|error| format!("Could not remove backup: {error}"))?;
         }
         Ok(target.join(relative))
     })();
@@ -383,9 +391,13 @@ fn find_executable(directory: &Path, accepted_stems: &[&str]) -> Option<PathBuf>
             let path = entry.path();
             if path.is_dir() {
                 directories.push(path);
-            } else if path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
+            } else if path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"))
                 && path.file_stem().is_some_and(|stem| {
-                    accepted_stems.iter().any(|accepted| stem.eq_ignore_ascii_case(accepted))
+                    accepted_stems
+                        .iter()
+                        .any(|accepted| stem.eq_ignore_ascii_case(accepted))
                 })
             {
                 matches.push(path);
@@ -404,7 +416,10 @@ fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
         .output()
         .map_err(|error| format!("Could not mount package: {error}"))?;
     if !output.status.success() {
-        return Err(format!("Could not mount package: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(format!(
+            "Could not mount package: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mount = stdout
@@ -418,20 +433,32 @@ fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             .map_err(|error| format!("Could not inspect package: {error}"))?
             .flatten()
             .map(|entry| entry.path())
-            .find(|path| path.extension().is_some_and(|extension| extension.eq_ignore_ascii_case("app")))
+            .find(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
+            })
             .ok_or_else(|| "The verified package did not contain an application".to_owned())?;
         let target_dir = apps_root().join(&app.id);
-        fs::create_dir_all(&target_dir).map_err(|error| format!("Could not create app directory: {error}"))?;
-        let target = target_dir.join(source.file_name().ok_or_else(|| "Invalid app bundle name".to_owned())?);
+        fs::create_dir_all(&target_dir)
+            .map_err(|error| format!("Could not create app directory: {error}"))?;
+        let target = target_dir.join(
+            source
+                .file_name()
+                .ok_or_else(|| "Invalid app bundle name".to_owned())?,
+        );
         if target.exists() {
-            fs::remove_dir_all(&target).map_err(|error| format!("Could not replace app: {error}"))?;
+            fs::remove_dir_all(&target)
+                .map_err(|error| format!("Could not replace app: {error}"))?;
         }
         let status = Command::new("ditto")
             .arg(&source)
             .arg(&target)
             .status()
             .map_err(|error| format!("Could not copy app: {error}"))?;
-        status.success().then_some(target).ok_or_else(|| "Could not copy app bundle".to_owned())
+        status
+            .success()
+            .then_some(target)
+            .ok_or_else(|| "Could not copy app bundle".to_owned())
     })();
     let _ = Command::new("hdiutil").arg("detach").arg(&mount).status();
     result
@@ -462,10 +489,14 @@ fn state_path() -> PathBuf {
 
 fn save_state(state: &InstallState) -> Result<(), String> {
     let path = state_path();
-    let parent = path.parent().ok_or_else(|| "Invalid state path".to_owned())?;
-    fs::create_dir_all(parent).map_err(|error| format!("Could not create state directory: {error}"))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Invalid state path".to_owned())?;
+    fs::create_dir_all(parent)
+        .map_err(|error| format!("Could not create state directory: {error}"))?;
     let temporary = path.with_extension("json.tmp");
-    let json = serde_json::to_vec_pretty(state).map_err(|error| format!("Could not serialize state: {error}"))?;
+    let json = serde_json::to_vec_pretty(state)
+        .map_err(|error| format!("Could not serialize state: {error}"))?;
     fs::write(&temporary, json).map_err(|error| format!("Could not write state: {error}"))?;
     if path.exists() {
         fs::remove_file(&path).map_err(|error| format!("Could not replace state: {error}"))?;
@@ -488,7 +519,10 @@ mod tests {
 
     #[test]
     fn digest_parser_only_accepts_sha256_hex() {
-        assert_eq!(parse_digest(&format!("sha256:{}", "a".repeat(64))), Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+        assert_eq!(
+            parse_digest(&format!("sha256:{}", "a".repeat(64))),
+            Some("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        );
         assert_eq!(parse_digest("sha256:nope"), None);
         assert_eq!(parse_digest(&format!("sha512:{}", "a".repeat(64))), None);
     }

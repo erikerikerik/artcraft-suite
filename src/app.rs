@@ -90,7 +90,11 @@ impl ArtCraftSuite {
         self.progress = 0.0;
         self.status = format!("Checking {} releases…", self.channel.to_lowercase());
         let channel = self.channel.clone();
-        let apps: Vec<_> = self.apps.iter().map(|entry| entry.manifest.clone()).collect();
+        let apps: Vec<_> = self
+            .apps
+            .iter()
+            .map(|entry| entry.manifest.clone())
+            .collect();
         let sender = self.sender.clone();
         thread::spawn(move || {
             let platform = services::platform_key();
@@ -122,7 +126,11 @@ impl ArtCraftSuite {
                     Some(release) => release,
                     None => services::resolve_release(&app, &channel, services::platform_key())?,
                 };
-                let extension = if release.asset.name.ends_with(".dmg") { "dmg" } else { "zip" };
+                let extension = if release.asset.name.ends_with(".dmg") {
+                    "dmg"
+                } else {
+                    "zip"
+                };
                 let package: PathBuf = std::env::temp_dir().join(format!(
                     "artcraft-suite-{}-{}.{}",
                     app.id,
@@ -182,7 +190,9 @@ impl ArtCraftSuite {
                 Message::RefreshComplete(results) => {
                     let mut ready = 0;
                     for (id, result) in results {
-                        if let Some(entry) = self.apps.iter_mut().find(|entry| entry.manifest.id == id) {
+                        if let Some(entry) =
+                            self.apps.iter_mut().find(|entry| entry.manifest.id == id)
+                        {
                             match result {
                                 Ok(release) => {
                                     entry.release = Some(release);
@@ -201,37 +211,54 @@ impl ArtCraftSuite {
                     self.status = if ready == self.apps.len() {
                         format!("All {ready} apps are ready.")
                     } else {
-                        format!("{ready} of {} releases are available. Hover unavailable items for details.", self.apps.len())
+                        format!(
+                            "{ready} of {} releases are available. Hover unavailable items for details.",
+                            self.apps.len()
+                        )
                     };
                 }
                 Message::Progress(value) => {
                     self.progress = value;
-                    self.status = format!("Downloading and verifying package… {}%", (value * 100.0).round());
+                    self.status = format!(
+                        "Downloading and verifying package… {}%",
+                        (value * 100.0).round()
+                    );
                 }
                 Message::Installed(id, result) => {
                     self.busy = false;
                     self.progress = 0.0;
-                    if let Some(entry) = self.apps.iter_mut().find(|entry| entry.manifest.id == id) {
+                    if let Some(entry) = self.apps.iter_mut().find(|entry| entry.manifest.id == id)
+                    {
                         match result {
                             Ok(installed) => {
                                 entry.selected = false;
-                                self.status = format!("{} {} is installed.", entry.manifest.name, installed.version);
+                                self.status = format!(
+                                    "{} {} is installed.",
+                                    entry.manifest.name, installed.version
+                                );
                                 entry.installed = Some(installed);
                             }
-                            Err(error) => self.status = format!("Could not install {}: {error}", entry.manifest.name),
+                            Err(error) => {
+                                self.status =
+                                    format!("Could not install {}: {error}", entry.manifest.name)
+                            }
                         }
                     }
                     continue_install_queue = true;
                 }
                 Message::Removed(id, result) => {
                     self.busy = false;
-                    if let Some(entry) = self.apps.iter_mut().find(|entry| entry.manifest.id == id) {
+                    if let Some(entry) = self.apps.iter_mut().find(|entry| entry.manifest.id == id)
+                    {
                         match result {
                             Ok(()) => {
                                 entry.installed = None;
                                 self.status = format!("{} was removed.", entry.manifest.name);
                             }
-                            Err(error) => self.status = format!("Could not remove {}: {error}", entry.manifest.name),
+                            Err(error) => {
+                                self.status =
+                                    format!("Could not remove {}: {error}", entry.manifest.name)
+                            }
                         }
                     }
                 }
@@ -257,14 +284,32 @@ impl ArtCraftSuite {
             .show(root, |ui| {
                 ui.horizontal(|ui| {
                     ui.vertical(|ui| {
-                        ui.label(RichText::new("A R T C R A F T   S U I T E").size(13.0).strong().color(PURPLE));
+                        ui.label(
+                            RichText::new("A R T C R A F T   S U I T E")
+                                .size(13.0)
+                                .strong()
+                                .color(PURPLE),
+                        );
                         ui.add_space(4.0);
-                        ui.label(RichText::new("Your creative toolkit, in one place.").size(27.0).strong().color(Color32::WHITE));
+                        ui.label(
+                            RichText::new("Your creative toolkit, in one place.")
+                                .size(27.0)
+                                .strong()
+                                .color(Color32::WHITE),
+                        );
                         ui.add_space(3.0);
-                        ui.label(RichText::new("Official upstream builds · verified before install").size(15.0).color(Color32::from_rgb(156, 163, 180)));
+                        ui.label(
+                            RichText::new("Official upstream builds · verified before install")
+                                .size(15.0)
+                                .color(Color32::from_rgb(156, 163, 180)),
+                        );
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let refresh = ui.add_enabled(!self.busy, egui::Button::new(RichText::new("Refresh").size(15.0)).min_size(Vec2::new(76.0, 36.0)));
+                        let refresh = ui.add_enabled(
+                            !self.busy,
+                            egui::Button::new(RichText::new("Refresh").size(15.0))
+                                .min_size(Vec2::new(76.0, 36.0)),
+                        );
                         if refresh.clicked() {
                             self.refresh();
                         }
@@ -276,7 +321,11 @@ impl ArtCraftSuite {
                                 ui.selectable_value(&mut self.channel, "Stable".into(), "Stable");
                                 ui.selectable_value(&mut self.channel, "Latest".into(), "Latest");
                             });
-                        ui.label(RichText::new("Channel").size(15.0).color(Color32::from_rgb(170, 176, 192)));
+                        ui.label(
+                            RichText::new("Channel")
+                                .size(15.0)
+                                .color(Color32::from_rgb(170, 176, 192)),
+                        );
                         if previous != self.channel {
                             self.refresh();
                         }
@@ -301,13 +350,25 @@ impl ArtCraftSuite {
                         ui.label(RichText::new(&self.status).size(14.0).color(Color32::WHITE));
                         if self.busy {
                             ui.add_space(8.0);
-                            ui.add(egui::ProgressBar::new(self.progress).desired_width((ui.available_width() - 180.0).max(120.0)).desired_height(4.0));
+                            ui.add(
+                                egui::ProgressBar::new(self.progress)
+                                    .desired_width((ui.available_width() - 180.0).max(120.0))
+                                    .desired_height(4.0),
+                            );
                         }
                     });
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        let selected: Vec<usize> = self.apps.iter().enumerate().filter_map(|(index, app)| app.selected.then_some(index)).collect();
+                        let selected: Vec<usize> = self
+                            .apps
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, app)| app.selected.then_some(index))
+                            .collect();
                         let enabled = !self.busy && !selected.is_empty();
-                        let button = ui.add_enabled(enabled, primary_button("Install selected", Vec2::new(140.0, 42.0)));
+                        let button = ui.add_enabled(
+                            enabled,
+                            primary_button("Install selected", Vec2::new(140.0, 42.0)),
+                        );
                         if button.clicked() {
                             self.install_selected();
                         }
@@ -319,7 +380,11 @@ impl ArtCraftSuite {
     fn card(&mut self, ui: &mut egui::Ui, index: usize, size: Vec2) {
         let installed = services::is_installed(self.apps[index].installed.as_ref());
         let fill = if installed { INSTALLED_BG } else { CARD };
-        let stroke = if installed { Stroke::new(1.0, GREEN) } else { Stroke::new(1.0, BORDER) };
+        let stroke = if installed {
+            Stroke::new(1.0, GREEN)
+        } else {
+            Stroke::new(1.0, BORDER)
+        };
         let tooltip = self.apps[index].error.clone();
         let response = egui::Frame::new()
             .fill(fill)
@@ -333,53 +398,131 @@ impl ArtCraftSuite {
                     ui.add_space(2.0);
                     ui.vertical_centered(|ui| {
                         ui.add_space(((size.y - 58.0) * 0.5).max(0.0));
-                        ui.add_enabled(!self.busy, egui::Checkbox::without_text(&mut self.apps[index].selected));
+                        ui.add_enabled(
+                            !self.busy,
+                            egui::Checkbox::without_text(&mut self.apps[index].selected),
+                        );
                     });
                     ui.add_space(8.0);
                     ui.vertical_centered(|ui| {
                         ui.add_space(((size.y - 72.0) * 0.5).max(0.0));
                         if let Some(icon) = self.icons.get(&self.apps[index].manifest.id) {
-                            ui.add(egui::Image::new((icon.id(), Vec2::splat(44.0))).corner_radius(10.0));
+                            ui.add(
+                                egui::Image::new((icon.id(), Vec2::splat(44.0)))
+                                    .corner_radius(10.0),
+                            );
                         }
                     });
                     ui.add_space(8.0);
                     let right_width = if installed { 224.0 } else { 122.0 };
                     let middle_width = (ui.available_width() - right_width - 12.0).max(100.0);
-                    ui.allocate_ui_with_layout(Vec2::new(middle_width, size.y - 28.0), egui::Layout::top_down(egui::Align::Min), |ui| {
-                        ui.add_space(6.0);
-                        ui.label(RichText::new(&self.apps[index].manifest.name).size(17.0).strong().color(Color32::WHITE));
-                        ui.add(egui::Label::new(RichText::new(&self.apps[index].manifest.description).size(14.0).color(MUTED)).truncate());
-                        if installed {
-                            let version = &self.apps[index].installed.as_ref().unwrap().version;
-                            egui::Frame::new().fill(Color32::from_rgb(22, 75, 56)).stroke(Stroke::new(1.0, GREEN)).corner_radius(10.0).inner_margin(egui::Margin::symmetric(8, 3)).show(ui, |ui| {
-                                ui.label(RichText::new(format!("✓ INSTALLED · {version}")).size(11.0).strong().color(Color32::from_rgb(131, 240, 190)));
-                            });
-                        }
-                    });
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(middle_width, size.y - 28.0),
+                        egui::Layout::top_down(egui::Align::Min),
+                        |ui| {
+                            ui.add_space(6.0);
+                            ui.label(
+                                RichText::new(&self.apps[index].manifest.name)
+                                    .size(17.0)
+                                    .strong()
+                                    .color(Color32::WHITE),
+                            );
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(&self.apps[index].manifest.description)
+                                        .size(14.0)
+                                        .color(MUTED),
+                                )
+                                .truncate(),
+                            );
+                            if installed {
+                                let version = &self.apps[index].installed.as_ref().unwrap().version;
+                                egui::Frame::new()
+                                    .fill(Color32::from_rgb(22, 75, 56))
+                                    .stroke(Stroke::new(1.0, GREEN))
+                                    .corner_radius(10.0)
+                                    .inner_margin(egui::Margin::symmetric(8, 3))
+                                    .show(ui, |ui| {
+                                        ui.label(
+                                            RichText::new(format!("✓ INSTALLED · {version}"))
+                                                .size(11.0)
+                                                .strong()
+                                                .color(Color32::from_rgb(131, 240, 190)),
+                                        );
+                                    });
+                            }
+                        },
+                    );
                     ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
                         ui.add_space(3.0);
-                        let release_label = self.apps[index].release.as_ref().map(|release| format!("Available {}", release.version)).unwrap_or_else(|| if self.apps[index].error.is_some() { "Unavailable".into() } else { "Checking…".into() });
+                        let release_label = self.apps[index]
+                            .release
+                            .as_ref()
+                            .map(|release| format!("Available {}", release.version))
+                            .unwrap_or_else(|| {
+                                if self.apps[index].error.is_some() {
+                                    "Unavailable".into()
+                                } else {
+                                    "Checking…".into()
+                                }
+                            });
                         ui.label(RichText::new(release_label).size(12.0).color(PURPLE));
                         ui.add_space(8.0);
                         ui.horizontal(|ui| {
                             if installed {
-                                if ui.add_enabled(!self.busy, action_button("Open", Color32::from_rgb(35, 122, 89), Vec2::new(56.0, 36.0))).clicked() {
+                                if ui
+                                    .add_enabled(
+                                        !self.busy,
+                                        action_button(
+                                            "Open",
+                                            Color32::from_rgb(35, 122, 89),
+                                            Vec2::new(56.0, 36.0),
+                                        ),
+                                    )
+                                    .clicked()
+                                {
                                     if let Some(entry) = self.apps[index].installed.as_ref() {
                                         if let Err(error) = services::launch(entry) {
-                                            self.status = format!("Could not open {}: {error}", self.apps[index].manifest.name);
+                                            self.status = format!(
+                                                "Could not open {}: {error}",
+                                                self.apps[index].manifest.name
+                                            );
                                         }
                                     }
                                 }
-                                if ui.add_enabled(!self.busy, egui::Button::new("Remove").min_size(Vec2::new(66.0, 36.0))).clicked() {
+                                if ui
+                                    .add_enabled(
+                                        !self.busy,
+                                        egui::Button::new("Remove").min_size(Vec2::new(66.0, 36.0)),
+                                    )
+                                    .clicked()
+                                {
                                     self.remove_one(index);
                                 }
                             }
                             let label = if installed {
-                                let different = self.apps[index].release.as_ref().zip(self.apps[index].installed.as_ref()).is_some_and(|(release, current)| release.version != current.version);
+                                let different = self.apps[index]
+                                    .release
+                                    .as_ref()
+                                    .zip(self.apps[index].installed.as_ref())
+                                    .is_some_and(|(release, current)| {
+                                        release.version != current.version
+                                    });
                                 if different { "Update" } else { "Reinstall" }
-                            } else { "Install" };
+                            } else {
+                                "Install"
+                            };
                             let can_install = !self.busy && self.apps[index].release.is_some();
-                            if ui.add_enabled(can_install, primary_button(label, Vec2::new(if installed { 86.0 } else { 82.0 }, 36.0))).clicked() {
+                            if ui
+                                .add_enabled(
+                                    can_install,
+                                    primary_button(
+                                        label,
+                                        Vec2::new(if installed { 86.0 } else { 82.0 }, 36.0),
+                                    ),
+                                )
+                                .clicked()
+                            {
                                 self.install_queue.clear();
                                 self.install_one(index);
                             }
@@ -404,9 +547,18 @@ impl eframe::App for ArtCraftSuite {
         self.header(root);
         self.footer(root);
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(BG).inner_margin(egui::Margin::symmetric(23, 12)))
+            .frame(
+                egui::Frame::new()
+                    .fill(BG)
+                    .inner_margin(egui::Margin::symmetric(23, 12)),
+            )
             .show(root, |ui| {
-                ui.label(RichText::new("A P P L I C A T I O N S").size(12.0).strong().color(Color32::from_rgb(114, 121, 141)));
+                ui.label(
+                    RichText::new("A P P L I C A T I O N S")
+                        .size(12.0)
+                        .strong()
+                        .color(Color32::from_rgb(114, 121, 141)),
+                );
                 ui.add_space(7.0);
                 let gap = 10.0;
                 let width = (ui.available_width() - gap) / 2.0;
@@ -459,13 +611,31 @@ fn action_button(text: &str, fill: Color32, size: Vec2) -> egui::Button<'_> {
 
 fn load_icons(ctx: &egui::Context) -> BTreeMap<String, TextureHandle> {
     let icons: [(&str, &[u8]); 7] = [
-        ("photocraft", include_bytes!("../assets/icons/photocraft.png")),
-        ("vectorcraft", include_bytes!("../assets/icons/vectorcraft.png")),
-        ("designcraft", include_bytes!("../assets/icons/designcraft.png")),
+        (
+            "photocraft",
+            include_bytes!("../assets/icons/photocraft.png"),
+        ),
+        (
+            "vectorcraft",
+            include_bytes!("../assets/icons/vectorcraft.png"),
+        ),
+        (
+            "designcraft",
+            include_bytes!("../assets/icons/designcraft.png"),
+        ),
         ("filmcraft", include_bytes!("../assets/icons/filmcraft.png")),
-        ("effectcraft", include_bytes!("../assets/icons/effectcraft.png")),
-        ("lightcraft", include_bytes!("../assets/icons/lightcraft.png")),
-        ("printcraft", include_bytes!("../assets/icons/printcraft.png")),
+        (
+            "effectcraft",
+            include_bytes!("../assets/icons/effectcraft.png"),
+        ),
+        (
+            "lightcraft",
+            include_bytes!("../assets/icons/lightcraft.png"),
+        ),
+        (
+            "printcraft",
+            include_bytes!("../assets/icons/printcraft.png"),
+        ),
     ];
     icons
         .into_iter()
@@ -474,7 +644,14 @@ fn load_icons(ctx: &egui::Context) -> BTreeMap<String, TextureHandle> {
             let size = [image.width() as usize, image.height() as usize];
             let pixels = image.into_raw();
             let color_image = egui::ColorImage::from_rgba_unmultiplied(size, &pixels);
-            Some((id.to_owned(), ctx.load_texture(format!("{id}-icon"), color_image, egui::TextureOptions::LINEAR)))
+            Some((
+                id.to_owned(),
+                ctx.load_texture(
+                    format!("{id}-icon"),
+                    color_image,
+                    egui::TextureOptions::LINEAR,
+                ),
+            ))
         })
         .collect()
 }
