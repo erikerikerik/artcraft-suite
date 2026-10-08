@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 — in development
+## 0.3.0 — 2026-10-08
 
 ### Added
 
@@ -9,6 +9,10 @@
 - Added official upstream icons with complete license and provenance records.
 - Added an API-independent fallback for stable GitHub releases and automated
   tests for release parsing, package aliases, safe extraction, and installation.
+- Added resumable downloads, ETag-backed offline release caching, structured JSON
+  logs, and a one-click diagnostic report.
+- Added transaction journals and retention of the immediately previous working
+  version for crash-safe update recovery.
 
 ### Fixed
 
@@ -19,6 +23,10 @@
   and retains transactional directory/state rollback during updates.
 - Rejects ZIP path traversal, symbolic links, excessive entry counts, and archives
   that declare more than 16 GiB of extracted data.
+- Detects any running executable inside an installation directory instead of
+  assuming its process name matches the public application name.
+- Validates manifest identifiers and repository/package rules before using them in
+  filesystem paths or release requests.
 
 ## 0.1.1 — 2026-10-07
 

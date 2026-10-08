@@ -8,6 +8,8 @@ public sealed class MainViewModel : ObservableObject
 {
     private readonly GitHubReleaseService _releases;
     private readonly PortableInstallerService _installer;
+    private readonly DiagnosticService _diagnostics;
+    private readonly Func<string, Task>? _copyText;
     private CancellationTokenSource? _operation;
     private bool _isBusy;
     private double _progress;
@@ -19,6 +21,7 @@ public sealed class MainViewModel : ObservableObject
     public AsyncCommand RefreshCommand { get; }
     public AsyncCommand InstallSelectedCommand { get; }
     public RelayCommand CancelCommand { get; }
+    public AsyncCommand CopyDiagnosticsCommand { get; }
 
     public bool IsBusy
     {
@@ -32,7 +35,11 @@ public sealed class MainViewModel : ObservableObject
     }
 
     public double Progress { get => _progress; private set => Set(ref _progress, value); }
-    public string Status { get => _status; private set => Set(ref _status, value); }
+    public string Status
+    {
+        get => _status;
+        private set { if (Set(ref _status, value)) _diagnostics.Info("status", value); }
+    }
 
     public string Channel
     {
@@ -46,13 +53,17 @@ public sealed class MainViewModel : ObservableObject
         }
     }
 
-    public MainViewModel(SuiteManifest manifest, GitHubReleaseService releases, PortableInstallerService installer)
+    public MainViewModel(SuiteManifest manifest, GitHubReleaseService releases, PortableInstallerService installer,
+        DiagnosticService? diagnostics = null, Func<string, Task>? copyText = null)
     {
         _releases = releases;
         _installer = installer;
+        _diagnostics = diagnostics ?? new DiagnosticService();
+        _copyText = copyText;
         RefreshCommand = new(() => RefreshAsync(forceRefresh: true), () => !IsBusy);
         InstallSelectedCommand = new(InstallSelectedAsync, () => !IsBusy && Apps.Any(x => x.IsSelected && x.Release is not null));
         CancelCommand = new(() => _operation?.Cancel(), () => IsBusy);
+        CopyDiagnosticsCommand = new(CopyDiagnosticsAsync);
 
         var state = installer.LoadState();
         foreach (var item in manifest.Apps)
@@ -66,6 +77,19 @@ public sealed class MainViewModel : ObservableObject
             Apps.Add(vm);
         }
         _ = RefreshAsync(forceRefresh: false);
+    }
+
+    private async Task CopyDiagnosticsAsync()
+    {
+        try
+        {
+            var lines = Apps.Select(app => $"{app.Name}: installed={app.Installed?.Version ?? "no"}, available={app.Release?.Version ?? "unknown"}, error={app.Error ?? "none"}");
+            var report = _diagnostics.BuildReport(Channel, Status, lines);
+            if (_copyText is null) { Status = $"Diagnostic report is available at {_diagnostics.LogPath}."; return; }
+            await _copyText(report);
+            Status = "Diagnostic report copied to the clipboard.";
+        }
+        catch (Exception ex) { _diagnostics.Error("diagnostics.copy", ex); Status = $"Could not copy diagnostics: {ex.Message}"; }
     }
 
     private string Platform => OperatingSystem.IsWindows() ? "windows-x64" : OperatingSystem.IsMacOS() && System.Runtime.InteropServices.RuntimeInformation.OSArchitecture == System.Runtime.InteropServices.Architecture.Arm64 ? "macos-arm64" : "unsupported";
@@ -98,7 +122,7 @@ public sealed class MainViewModel : ObservableObject
                 ct.ThrowIfCancellationRequested();
                 try { app.Release = await _releases.ResolveAsync(app.Manifest, Channel, Platform, forceRefresh, ct); app.Error = null; }
                 catch (OperationCanceledException) { throw; }
-                catch (Exception ex) { app.Release = null; app.Error = ex.Message; }
+                catch (Exception ex) { _diagnostics.Error($"refresh.{app.Manifest.Id}", ex); app.Release = null; app.Error = ex.Message; }
                 Progress = ++completed * 100d / Apps.Count;
             }
             var available = Apps.Count(x => x.Release is not null);
@@ -107,7 +131,7 @@ public sealed class MainViewModel : ObservableObject
                 : rateLimit ?? $"{available} of {Apps.Count} releases are available. Hover unavailable items for details.";
         }
         catch (OperationCanceledException) { Status = "Check cancelled."; }
-        catch (Exception ex) { Status = $"Refresh failed: {ex.Message}"; }
+        catch (Exception ex) { _diagnostics.Error("refresh", ex); Status = $"Refresh failed: {ex.Message}"; }
         finally { End(); }
     }
 
@@ -162,27 +186,33 @@ public sealed class MainViewModel : ObservableObject
     private async Task<string?> InstallCoreAsync(AppItemViewModel app, CancellationToken ct)
     {
         string? temp = null;
+        var installedSuccessfully = false;
         try
         {
             // Always resolve against the channel currently shown, so a release from a previously selected
             // channel can never be installed. This is served from cache and costs no extra API call.
             app.Release = await _releases.ResolveAsync(app.Manifest, Channel, Platform, forceRefresh: false, ct);
             app.Error = null;
-            temp = Path.Combine(Path.GetTempPath(), $"artcraft-suite-{Guid.NewGuid():N}.zip");
+            var downloads = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArtCraftSuite", "downloads");
+            Directory.CreateDirectory(downloads);
+            temp = Path.Combine(downloads, $"{app.Manifest.Id}-{app.Release.Sha256}.partial");
             Progress = 0;
-            Status = $"Downloading {app.Name} {app.Release.Version}…";
+            Status = File.Exists(temp)
+                ? $"Resuming and verifying {app.Name} {app.Release.Version}…"
+                : $"Downloading {app.Name} {app.Release.Version}…";
             await _releases.DownloadVerifiedAsync(app.Release, temp, new Progress<double>(x => Progress = x), ct);
             Status = $"Installing verified {app.Name} package…";
             app.Installed = await _installer.InstallZipAsync(app.Manifest, app.Release, temp, ct);
+            installedSuccessfully = true;
             app.IsSelected = false;
             Status = $"{app.Name} {app.Installed.Version} is installed.";
             return null;
         }
         catch (OperationCanceledException) { throw; }
-        catch (Exception ex) { return ex.Message; }
+        catch (Exception ex) { _diagnostics.Error($"install.{app.Manifest.Id}", ex); return ex.Message; }
         finally
         {
-            if (temp is not null && File.Exists(temp))
+            if (installedSuccessfully && temp is not null && File.Exists(temp))
             {
                 try { File.Delete(temp); } catch (IOException) { } catch (UnauthorizedAccessException) { }
             }
@@ -198,14 +228,14 @@ public sealed class MainViewModel : ObservableObject
             app.Installed = null;
             Status = warning ?? $"{app.Name} was removed.";
         }
-        catch (Exception ex) { Status = $"Could not remove {app.Name}: {ex.Message}"; }
+        catch (Exception ex) { _diagnostics.Error($"remove.{app.Manifest.Id}", ex); Status = $"Could not remove {app.Name}: {ex.Message}"; }
         return Task.CompletedTask;
     }
 
     private void OpenOne(AppItemViewModel app)
     {
         try { if (app.Installed is not null) PortableInstallerService.Launch(app.Installed); }
-        catch (Exception ex) { Status = $"Could not open {app.Name}: {ex.Message}"; }
+        catch (Exception ex) { _diagnostics.Error($"launch.{app.Manifest.Id}", ex); Status = $"Could not open {app.Name}: {ex.Message}"; }
     }
 }
 
@@ -227,15 +257,37 @@ public sealed class AppItemViewModel : ObservableObject
     public string? Error { get => _error; set { if (Set(ref _error, value)) Raise(nameof(ReleaseLabel)); } }
     public bool IsInstalled => Installed is not null && File.Exists(Installed.ExecutablePath);
     public bool HasInstalledVersion => IsInstalled;
+    public bool HasRelease => Release is not null;
     public string InstalledBadge => IsInstalled ? $"✓ INSTALLED · {Installed!.Version}" : string.Empty;
-    public string CardBackground => IsInstalled ? "#19241F" : "#171923";
-    public string CardBorder => IsInstalled ? "#39C98A" : "#2B2E3C";
+    public string StateLabel
+    {
+        get
+        {
+            if (Installed is not null && !IsInstalled) return "REPAIR NEEDED";
+            if (!IsInstalled) return "NOT INSTALLED";
+            return Release is not null && VersionComparer.Compare(Release.Version, Installed!.Version) > 0 ? "UPDATE AVAILABLE" : "INSTALLED";
+        }
+    }
+    public string VersionSummary
+    {
+        get
+        {
+            var installed = Installed?.Version ?? "—";
+            var available = Release?.Version ?? "—";
+            var size = Release?.Asset.Size > 0 ? FormatBytes(Release.Asset.Size) : "size unknown";
+            return $"Installed {installed}  ·  Available {available}  ·  {size}";
+        }
+    }
+    public string VerificationLabel => HasRelease ? "✓ SHA-256 REQUIRED" : string.Empty;
+    public string CardBackground => Installed is not null && !IsInstalled ? "#2A1C1C" : IsInstalled ? "#19241F" : "#171923";
+    public string CardBorder => Installed is not null && !IsInstalled ? "#D96A6A" : IsInstalled ? "#39C98A" : "#2B2E3C";
     public string ReleaseLabel => Release is null ? (Error is null ? "Checking…" : "Unavailable") : $"Available {Release.Version}";
 
     public string ActionLabel
     {
         get
         {
+            if (Installed is not null && !IsInstalled) return "Repair";
             if (!IsInstalled) return "Install";
             if (Release is null) return "Reinstall";
             var comparison = VersionComparer.Compare(Release.Version, Installed!.Version);
@@ -263,8 +315,18 @@ public sealed class AppItemViewModel : ObservableObject
     private void RaiseStatus()
     {
         Raise(nameof(IsInstalled)); Raise(nameof(HasInstalledVersion)); Raise(nameof(InstalledBadge)); Raise(nameof(CardBackground));
-        Raise(nameof(CardBorder)); Raise(nameof(ReleaseLabel)); Raise(nameof(ActionLabel));
+        Raise(nameof(CardBorder)); Raise(nameof(ReleaseLabel)); Raise(nameof(ActionLabel)); Raise(nameof(HasRelease));
+        Raise(nameof(StateLabel)); Raise(nameof(VersionSummary)); Raise(nameof(VerificationLabel));
         NotifyCommands();
+    }
+
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB"];
+        var value = (double)bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return $"{value:0.#} {units[unit]}";
     }
 }
 

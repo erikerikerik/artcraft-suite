@@ -22,6 +22,10 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
   release-asset digest and falls back to the upstream `SHA256SUMS.txt` file.
 - Stages updates before swapping directories, defends against ZIP path traversal,
   launches installed apps, and removes only manager-owned app directories.
+- Journals every update, rolls back failures automatically, and retains the prior
+  working version so an interrupted process can recover safely on next launch.
+- Resumes partial downloads, caches release metadata with GitHub ETags for offline
+  startup, and offers a copyable diagnostic report backed by structured JSON logs.
 - Builds a self-contained Windows x64 release artifact in GitHub Actions.
 - Handles PrintCraft releases whose package and executable are named `pdfcraft`.
 
@@ -35,6 +39,10 @@ continuing.
 The manager itself does not need administrator rights. Each creative application
 keeps its own settings and documents outside the manager-owned installation
 folder, so updating or removing an app does not intentionally remove user work.
+
+If anonymous GitHub rate limits are a problem, advanced users may set
+`ARTCRAFT_GITHUB_TOKEN` before launching the manager. The token is sent only to
+GitHub and is never written to logs or the diagnostic report.
 
 ## Build locally
 
@@ -81,6 +89,10 @@ from the manifest. It has no telemetry and does not require a GitHub token. GitH
 unauthenticated API rate limit applies. See [`SECURITY.md`](SECURITY.md) for the
 verification and reporting model.
 
+Downloaded packages remain untrusted until their expected length and SHA-256 are
+verified. ZIP extraction rejects traversal, symbolic links, excessive entry counts,
+and more than 16 GiB of declared expanded data.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md).
@@ -96,3 +108,6 @@ and attributions, listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 Repository owners can follow the exact steps in [`PUBLISHING.md`](PUBLISHING.md)
 to push the source and create the first automated release.
+
+The reliability guarantees and deliberate feature boundaries for this release are
+documented in [`docs/TRUST_CORE.md`](docs/TRUST_CORE.md).

@@ -41,10 +41,15 @@
                   <StackPanel Grid.Column="2" Grid.RowSpan="2" Margin="8,0,10,0" VerticalAlignment="Center">
                     <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
-                    <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" Margin="0,5,0,0"
-                            HorizontalAlignment="Left" IsVisible="{Binding HasInstalledVersion}">
-                      <TextBlock Text="{Binding InstalledBadge}" FontSize="11" FontWeight="Bold" Foreground="#83F0BE" />
-                    </Border>
+                    <TextBlock Text="{Binding VersionSummary}" Foreground="#7F8799" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,5,0,0">
+                      <Border Background="#242738" CornerRadius="10" Padding="8,3">
+                        <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold" Foreground="#D8DCE8" />
+                      </Border>
+                      <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" IsVisible="{Binding HasRelease}">
+                        <TextBlock Text="{Binding VerificationLabel}" FontSize="10" FontWeight="Bold" Foreground="#83F0BE" />
+                      </Border>
+                    </StackPanel>
                   </StackPanel>
                   <StackPanel Grid.Column="3" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock Text="{Binding ReleaseLabel}" HorizontalAlignment="Right" Foreground="#A998FF" FontSize="12" Margin="0,0,0,6" />
@@ -69,6 +74,7 @@
           <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="4" Margin="0,9,0,0" IsVisible="{Binding IsBusy}" />
         </StackPanel>
         <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Content="Copy diagnostics" Command="{Binding CopyDiagnosticsCommand}" />
           <Button Content="Cancel" Command="{Binding CancelCommand}" IsVisible="{Binding IsBusy}" />
           <Button Classes="primary" Content="Install selected" Command="{Binding InstallSelectedCommand}" />
         </StackPanel>

@@ -11,7 +11,9 @@ for (const id of expected) {
   for (const platform of ['windows-x64', 'macos-arm64']) {
     const pattern = app.assetPatterns?.[platform];
     if (!pattern?.startsWith('^') || !pattern.endsWith('$')) throw new Error(`${id} ${platform} pattern must be anchored`);
-    new RegExp(pattern.replace('{id}', id).replace('{version}', '0\\.0\\.0'), 'i');
+    const packageId = app.packageId || id;
+    if (!/^[a-z0-9-]+$/.test(packageId)) throw new Error(`invalid packageId for ${id}`);
+    new RegExp(pattern.replace('{id}', packageId).replace('{version}', '0\\.0\\.0'), 'i');
   }
 }
 console.log('Manifest is valid.');

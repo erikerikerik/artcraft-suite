@@ -18,7 +18,7 @@ public sealed partial class App : Application
             {
                 desktop.MainWindow = new MainWindow();
             }
-            catch (IOException error)
+            catch (Exception error)
             {
                 desktop.MainWindow = BuildStartupErrorWindow(error);
             }
@@ -26,7 +26,7 @@ public sealed partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static Window BuildStartupErrorWindow(IOException error)
+    private static Window BuildStartupErrorWindow(Exception error)
     {
         var closeButton = new Button
         {

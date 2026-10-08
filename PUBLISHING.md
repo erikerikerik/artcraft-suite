@@ -12,19 +12,19 @@ committed to the repository.
 
 ## Tag the release
 
-Use semantic versioning: bump the patch number for fixes (`v0.1.0` → `v0.1.1`),
-the minor number for new features (`v0.2.0`). A tag containing a hyphen, such as
-`v0.2.0-rc.1`, is published as a prerelease.
+Use semantic versioning: bump the patch number for fixes (`v0.3.0` → `v0.3.1`),
+the minor number for new features (`v0.4.0`). A tag containing a hyphen, such as
+`v0.4.0-rc.1`, is published as a prerelease.
 
 From a clone:
 
 ```powershell
-git tag -a v0.1.1 -m "ArtCraft Suite Manager 0.1.1"
-git push origin v0.1.1
+git tag -a v0.3.0 -m "ArtCraft Suite Manager 0.3.0"
+git push origin v0.3.0
 ```
 
 Or on GitHub: **Releases → Draft a new release**, type the new tag (for example
-`v0.1.1`), choose **Create new tag on publish** targeting `main`, and publish.
+`v0.3.0`), choose **Create new tag on publish** targeting `main`, and publish.
 
 Either way, the `Release` workflow builds the Windows x64 package and the clearly
 labeled unsigned macOS ARM scaffold, writes SHA-256 files for both, and attaches

@@ -11,8 +11,10 @@ public sealed class PortableInstallerService
     internal const long MaxExtractedBytes = 16L * 1024 * 1024 * 1024;
     internal const int MaxArchiveEntries = 100_000;
     private readonly string _root;
+    private readonly Action<string>? _testHook;
     private string StatePath => Path.Combine(_root, "state.json");
     private string AppsRoot => Path.Combine(_root, "apps");
+    private string TransactionsRoot => Path.Combine(_root, "transactions");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public PortableInstallerService(string? root = null)
@@ -20,17 +22,17 @@ public sealed class PortableInstallerService
         _root = root ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArtCraftSuite");
     }
 
-    /// <summary>
-    /// Loads install state. If state.json is missing or cannot be parsed, a damaged file is kept aside and
-    /// the list is rebuilt from the manager-owned app folders, so one bad file never makes the manager
-    /// forget (and later overwrite the record of) every installed app.
-    /// </summary>
+    internal PortableInstallerService(string root, Action<string>? testHook)
+    {
+        _root = root;
+        _testHook = testHook;
+    }
+
     public InstallState LoadState()
     {
+        RecoverInterruptedTransactions();
         if (File.Exists(StatePath))
         {
-            // A read error (for example antivirus briefly holding the file) is retried and then surfaced;
-            // only content that fails to parse is treated as damaged.
             var json = ReadWithRetry(StatePath);
             try
             {
@@ -60,14 +62,15 @@ public sealed class PortableInstallerService
     public async Task<InstalledApp> InstallZipAsync(AppManifest app, ResolvedRelease release, string archive, CancellationToken ct)
     {
         if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("macOS ARM support is scaffolded for builds; DMG installation will be enabled in a later release.");
+            throw new PlatformNotSupportedException("Windows ZIP installation is not available on this platform.");
         if (!release.Asset.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("The Windows installer expects an official portable ZIP asset.");
 
         Directory.CreateDirectory(AppsRoot);
         var target = Path.Combine(AppsRoot, app.Id);
         var staging = Path.Combine(AppsRoot, $".{app.Id}-staging-{Guid.NewGuid():N}");
-        var backup = Path.Combine(AppsRoot, $".{app.Id}-previous-{Guid.NewGuid():N}");
+        var backup = Path.Combine(AppsRoot, $".{app.Id}-previous");
+        var journalPath = Path.Combine(TransactionsRoot, $"{app.Id}.json");
         Directory.CreateDirectory(staging);
         try
         {
@@ -76,11 +79,15 @@ public sealed class PortableInstallerService
                 ?? throw new InvalidDataException($"The verified archive did not contain {app.EffectivePackageId}.exe.");
             var relativeExecutable = Path.GetRelativePath(staging, executable);
             var state = LoadState();
+            state.Apps.TryGetValue(app.Id, out var previousInstalled);
             var installed = new InstalledApp(app.Id, release.Version, Path.Combine(target, relativeExecutable), release.Asset.Name, release.Sha256, DateTimeOffset.UtcNow);
 
-            // Past this point the swap must not be interrupted half-way.
             ct.ThrowIfCancellationRequested();
-            ThrowIfRunning(app.Id, app.Name, target);
+            ThrowIfRunning(app.Name, target);
+            if (Directory.Exists(backup)) Directory.Delete(backup, true);
+            var journal = new InstallJournal(app.Id, target, staging, backup, TransactionPhase.Prepared, previousInstalled, installed);
+            SaveJournal(journalPath, journal);
+
             if (Directory.Exists(target))
             {
                 try { Directory.Move(target, backup); }
@@ -89,23 +96,27 @@ public sealed class PortableInstallerService
                     throw new InvalidOperationException($"{app.Name} appears to be open or its folder is in use. Close it and try again.", ex);
                 }
             }
+            journal = journal with { Phase = TransactionPhase.BackedUp };
+            SaveJournal(journalPath, journal);
+
             try
             {
                 Directory.Move(staging, target);
+                journal = journal with { Phase = TransactionPhase.Activated };
+                SaveJournal(journalPath, journal);
+                _testHook?.Invoke("AfterActivate");
                 state.Apps[app.Id] = installed;
                 SaveState(state);
+                SaveJournal(journalPath, journal with { Phase = TransactionPhase.StateSaved });
             }
             catch (Exception installError)
             {
                 try
                 {
-                    if (Directory.Exists(target))
-                    {
-                        var failed = Path.Combine(AppsRoot, $".{app.Id}-failed-{Guid.NewGuid():N}");
-                        Directory.Move(target, failed);
-                        TryDelete(failed);
-                    }
+                    MoveAsideAndDelete(target, app.Id);
                     if (Directory.Exists(backup)) Directory.Move(backup, target);
+                    RestorePreviousState(app.Id, previousInstalled);
+                    TryDeleteFile(journalPath);
                 }
                 catch (Exception rollbackError)
                 {
@@ -113,7 +124,8 @@ public sealed class PortableInstallerService
                 }
                 throw;
             }
-            if (Directory.Exists(backup)) TryDelete(backup);
+
+            TryDeleteFile(journalPath);
             return installed;
         }
         finally { if (Directory.Exists(staging)) TryDelete(staging); }
@@ -129,7 +141,7 @@ public sealed class PortableInstallerService
         string? removing = null;
         if (Directory.Exists(appDir))
         {
-            ThrowIfRunning(id, name, appDir);
+            ThrowIfRunning(name, appDir);
             removing = Path.Combine(AppsRoot, $".{id}-removing-{Guid.NewGuid():N}");
             try { Directory.Move(appDir, removing); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -138,10 +150,7 @@ public sealed class PortableInstallerService
             }
         }
 
-        try
-        {
-            if (state.Apps.Remove(id)) SaveState(state);
-        }
+        try { if (state.Apps.Remove(id)) SaveState(state); }
         catch (Exception stateError)
         {
             if (removing is not null)
@@ -155,12 +164,18 @@ public sealed class PortableInstallerService
             throw;
         }
 
-        if (removing is null) return null;
+        var previous = Path.Combine(AppsRoot, $".{id}-previous");
+        if (removing is null)
+        {
+            if (Directory.Exists(previous)) TryDelete(previous);
+            return null;
+        }
         try { Directory.Delete(removing, true); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            return $"{name} was removed, but some old files remain at {removing}. Close the app and delete that folder when it is no longer in use.";
+            return $"{name} was removed, but old files remain at {removing}. Close the app and delete that folder later.";
         }
+        if (Directory.Exists(previous)) TryDelete(previous);
         return null;
     }
 
@@ -177,21 +192,19 @@ public sealed class PortableInstallerService
         foreach (var dir in Directory.EnumerateDirectories(AppsRoot))
         {
             var id = Path.GetFileName(dir);
-            if (id.StartsWith('.') || id.EndsWith(".previous", StringComparison.OrdinalIgnoreCase)) continue;
+            if (id.StartsWith('.')) continue;
             var exe = FindExecutable(dir, id) ?? Directory.EnumerateFiles(dir, "*.exe", SearchOption.AllDirectories)
-                .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
-                .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
-                .FirstOrDefault();
-            if (exe is null) continue;
-            state.Apps[id] = new InstalledApp(id, DetectVersion(exe), exe, string.Empty, string.Empty, Directory.GetLastWriteTimeUtc(dir));
+                .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar)).ThenBy(x => x, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
+            if (exe is not null)
+                state.Apps[id] = new InstalledApp(id, DetectVersion(exe), exe, string.Empty, string.Empty, Directory.GetLastWriteTimeUtc(dir));
         }
         return state;
     }
 
-    private static void ThrowIfRunning(string id, string name, string appDir)
+    private static void ThrowIfRunning(string name, string appDir)
     {
         var root = Path.GetFullPath(appDir) + Path.DirectorySeparatorChar;
-        foreach (var process in Process.GetProcessesByName(id))
+        foreach (var process in Process.GetProcesses())
         {
             using (process)
             {
@@ -204,6 +217,71 @@ public sealed class PortableInstallerService
         }
     }
 
+    private void RecoverInterruptedTransactions()
+    {
+        if (!Directory.Exists(TransactionsRoot)) return;
+        foreach (var path in Directory.EnumerateFiles(TransactionsRoot, "*.json"))
+        {
+            InstallJournal journal;
+            try { journal = JsonSerializer.Deserialize<InstallJournal>(File.ReadAllText(path), JsonOptions) ?? throw new JsonException("Empty journal."); }
+            catch (Exception ex) when (ex is IOException or JsonException)
+            {
+                throw new IOException($"Interrupted installation recovery data is unreadable: {path}", ex);
+            }
+
+            if (journal.Phase is TransactionPhase.Activated
+                || journal.Phase is TransactionPhase.BackedUp && Directory.Exists(journal.Target))
+            {
+                MoveAsideAndDelete(journal.Target, journal.Id);
+                if (Directory.Exists(journal.Backup)) Directory.Move(journal.Backup, journal.Target);
+                RestorePreviousState(journal.Id, journal.Previous);
+            }
+            else if (journal.Phase is TransactionPhase.BackedUp && Directory.Exists(journal.Backup))
+            {
+                Directory.Move(journal.Backup, journal.Target);
+            }
+            else if (journal.Phase is TransactionPhase.Prepared && !Directory.Exists(journal.Target) && Directory.Exists(journal.Backup))
+            {
+                Directory.Move(journal.Backup, journal.Target);
+            }
+            if (Directory.Exists(journal.Staging)) TryDelete(journal.Staging);
+            TryDeleteFile(path);
+        }
+    }
+
+    private void RestorePreviousState(string id, InstalledApp? previous)
+    {
+        var state = ReadStateWithoutRecovery();
+        if (previous is null) state.Apps.Remove(id); else state.Apps[id] = previous;
+        SaveState(state);
+    }
+
+    private InstallState ReadStateWithoutRecovery()
+    {
+        if (!File.Exists(StatePath)) return new InstallState();
+        try { return JsonSerializer.Deserialize<InstallState>(ReadWithRetry(StatePath), JsonOptions) ?? new InstallState(); }
+        catch (JsonException) { return new InstallState(); }
+    }
+
+    private void SaveJournal(string path, InstallJournal journal)
+    {
+        Directory.CreateDirectory(TransactionsRoot);
+        AtomicWrite(path, JsonSerializer.Serialize(journal, JsonOptions));
+    }
+
+    private void SaveState(InstallState state)
+    {
+        Directory.CreateDirectory(_root);
+        AtomicWrite(StatePath, JsonSerializer.Serialize(state, JsonOptions));
+    }
+
+    private static void AtomicWrite(string path, string contents)
+    {
+        var temp = path + $".{Guid.NewGuid():N}.tmp";
+        try { File.WriteAllText(temp, contents); File.Move(temp, path, true); }
+        finally { TryDeleteFile(temp); }
+    }
+
     private static string ReadWithRetry(string path)
     {
         for (var attempt = 1; ; attempt++)
@@ -213,6 +291,14 @@ public sealed class PortableInstallerService
         }
     }
 
+    private static void MoveAsideAndDelete(string target, string id)
+    {
+        if (!Directory.Exists(target)) return;
+        var failed = Path.Combine(Path.GetDirectoryName(target)!, $".{id}-failed-{Guid.NewGuid():N}");
+        Directory.Move(target, failed);
+        TryDelete(failed);
+    }
+
     private static void TryDelete(string directory)
     {
         try { Directory.Delete(directory, true); }
@@ -220,36 +306,25 @@ public sealed class PortableInstallerService
         catch (UnauthorizedAccessException) { }
     }
 
-    private void SaveState(InstallState state)
+    private static void TryDeleteFile(string path)
     {
-        Directory.CreateDirectory(_root);
-        var temp = StatePath + ".tmp";
-        try
-        {
-            File.WriteAllText(temp, JsonSerializer.Serialize(state, JsonOptions));
-            File.Move(temp, StatePath, true);
-        }
-        finally
-        {
-            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
-        }
+        try { File.Delete(path); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     internal static void ExtractSafely(string archive, string destination, CancellationToken ct)
     {
         var root = Path.GetFullPath(destination) + Path.DirectorySeparatorChar;
         using var zip = ZipFile.OpenRead(archive);
-        if (zip.Entries.Count > MaxArchiveEntries)
-            throw new InvalidDataException($"Archive contains too many entries ({zip.Entries.Count:N0}).");
+        if (zip.Entries.Count > MaxArchiveEntries) throw new InvalidDataException($"Archive contains too many entries ({zip.Entries.Count:N0}).");
         long totalLength = 0;
         foreach (var entry in zip.Entries)
         {
-            if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000)
-                throw new InvalidDataException("Archive contains a symbolic link, which is not allowed.");
+            if (((entry.ExternalAttributes >> 16) & 0xF000) == 0xA000) throw new InvalidDataException("Archive contains a symbolic link, which is not allowed.");
             try { totalLength = checked(totalLength + entry.Length); }
             catch (OverflowException) { throw new InvalidDataException("Archive declares an invalid extracted size."); }
-            if (totalLength > MaxExtractedBytes)
-                throw new InvalidDataException($"Archive expands beyond the {MaxExtractedBytes / (1024 * 1024 * 1024)} GiB safety limit.");
+            if (totalLength > MaxExtractedBytes) throw new InvalidDataException($"Archive expands beyond the {MaxExtractedBytes / (1024 * 1024 * 1024)} GiB safety limit.");
         }
         foreach (var entry in zip.Entries)
         {
@@ -267,19 +342,19 @@ public sealed class PortableInstallerService
         var accepted = acceptedStems.ToHashSet(StringComparer.OrdinalIgnoreCase);
         return Directory.EnumerateFiles(directory, "*.exe", SearchOption.AllDirectories)
             .Where(x => accepted.Contains(Path.GetFileNameWithoutExtension(x)))
-            .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
-            .ThenBy(x => x, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+            .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar)).ThenBy(x => x, StringComparer.OrdinalIgnoreCase).FirstOrDefault();
     }
 
     private static string DetectVersion(string executable)
     {
         try
         {
-            var info = FileVersionInfo.GetVersionInfo(executable);
-            var candidate = info.ProductVersion ?? info.FileVersion;
+            var candidate = FileVersionInfo.GetVersionInfo(executable).ProductVersion ?? FileVersionInfo.GetVersionInfo(executable).FileVersion;
             return string.IsNullOrWhiteSpace(candidate) ? UnknownVersion : candidate.Split('+')[0];
         }
         catch { return UnknownVersion; }
     }
+
+    private enum TransactionPhase { Prepared, BackedUp, Activated, StateSaved }
+    private sealed record InstallJournal(string Id, string Target, string Staging, string Backup, TransactionPhase Phase, InstalledApp? Previous, InstalledApp Next);
 }
