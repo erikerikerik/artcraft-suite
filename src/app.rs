@@ -281,65 +281,74 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.horizontal(|ui| {
-                let height = ui.available_height();
-                let controls_width = 320.0;
-                let copy_width =
-                    (ui.available_width() - controls_width - ui.spacing().item_spacing.x).max(320.0);
-                ui.allocate_ui_with_layout(
-                    Vec2::new(copy_width, height),
-                    egui::Layout::top_down(egui::Align::Min),
-                    |ui| {
-                        ui.label(
-                            RichText::new("A R T C R A F T   S U I T E")
-                                .size(13.0)
-                                .strong()
-                                .color(PURPLE),
-                        );
-                        ui.add_space(4.0);
-                        ui.label(
-                            RichText::new("Your creative toolkit, in one place.")
-                                .size(27.0)
-                                .strong()
-                                .color(Color32::WHITE),
-                        );
-                        ui.add_space(3.0);
-                        ui.label(
-                            RichText::new("Official upstream builds · verified before install")
-                                .size(15.0)
-                                .color(Color32::from_rgb(156, 163, 180)),
-                        );
-                    },
-                );
-                ui.allocate_ui_with_layout(
-                    Vec2::new(controls_width, height),
-                    egui::Layout::right_to_left(egui::Align::Center),
-                    |ui| {
-                        let refresh = ui.add_enabled(
-                            !self.busy,
-                            egui::Button::new(RichText::new("Refresh").size(15.0))
-                                .min_size(Vec2::new(76.0, 36.0)),
-                        );
-                        if refresh.clicked() {
-                            self.refresh();
-                        }
-                        let previous = self.channel.clone();
-                        egui::ComboBox::from_id_salt("channel")
-                            .width(120.0)
-                            .selected_text(RichText::new(&self.channel).size(15.0))
-                            .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut self.channel, "Stable".into(), "Stable");
-                                ui.selectable_value(&mut self.channel, "Latest".into(), "Latest");
-                            });
-                        ui.label(
-                            RichText::new("Channel")
-                                .size(15.0)
-                                .color(Color32::from_rgb(170, 176, 192)),
-                        );
-                        if previous != self.channel {
-                            self.refresh();
-                        }
-                    },
-                );
+                    let height = ui.available_height();
+                    let controls_width = 320.0;
+                    let copy_width =
+                        (ui.available_width() - controls_width - ui.spacing().item_spacing.x)
+                            .max(320.0);
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(copy_width, height),
+                        egui::Layout::top_down(egui::Align::Min),
+                        |ui| {
+                            ui.label(
+                                RichText::new("A R T C R A F T   S U I T E")
+                                    .size(13.0)
+                                    .strong()
+                                    .color(PURPLE),
+                            );
+                            ui.add_space(4.0);
+                            ui.label(
+                                RichText::new("Your creative toolkit, in one place.")
+                                    .size(27.0)
+                                    .strong()
+                                    .color(Color32::WHITE),
+                            );
+                            ui.add_space(3.0);
+                            ui.label(
+                                RichText::new("Official upstream builds · verified before install")
+                                    .size(15.0)
+                                    .color(Color32::from_rgb(156, 163, 180)),
+                            );
+                        },
+                    );
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(controls_width, height),
+                        egui::Layout::right_to_left(egui::Align::Center),
+                        |ui| {
+                            let refresh = ui.add_enabled(
+                                !self.busy,
+                                egui::Button::new(RichText::new("Refresh").size(15.0))
+                                    .min_size(Vec2::new(76.0, 36.0)),
+                            );
+                            if refresh.clicked() {
+                                self.refresh();
+                            }
+                            let previous = self.channel.clone();
+                            egui::ComboBox::from_id_salt("channel")
+                                .width(120.0)
+                                .selected_text(RichText::new(&self.channel).size(15.0))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut self.channel,
+                                        "Stable".into(),
+                                        "Stable",
+                                    );
+                                    ui.selectable_value(
+                                        &mut self.channel,
+                                        "Latest".into(),
+                                        "Latest",
+                                    );
+                                });
+                            ui.label(
+                                RichText::new("Channel")
+                                    .size(15.0)
+                                    .color(Color32::from_rgb(170, 176, 192)),
+                            );
+                            if previous != self.channel {
+                                self.refresh();
+                            }
+                        },
+                    );
                 });
             });
     }
@@ -355,65 +364,70 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.horizontal(|ui| {
-                let height = ui.available_height();
-                let actions_width = 190.0;
-                let status_width =
-                    (ui.available_width() - actions_width - ui.spacing().item_spacing.x).max(120.0);
-                if self.busy {
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(status_width, height),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            ui.add(
-                                egui::Label::new(
-                                    RichText::new(&self.status).size(14.0).color(Color32::WHITE),
+                    let height = ui.available_height();
+                    let actions_width = 190.0;
+                    let status_width =
+                        (ui.available_width() - actions_width - ui.spacing().item_spacing.x)
+                            .max(120.0);
+                    if self.busy {
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(status_width, height),
+                            egui::Layout::top_down(egui::Align::Min),
+                            |ui| {
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&self.status)
+                                            .size(14.0)
+                                            .color(Color32::WHITE),
+                                    )
+                                    .truncate(),
                                 )
-                                .truncate(),
-                            )
-                            .on_hover_text(&self.status);
-                            ui.add_space(6.0);
-                            ui.add(
-                                egui::ProgressBar::new(self.progress)
-                                    .desired_width(ui.available_width().max(120.0))
-                                    .desired_height(4.0),
-                            );
-                        },
-                    );
-                } else {
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(status_width, height),
-                        egui::Layout::left_to_right(egui::Align::Center),
-                        |ui| {
-                            ui.add(
-                                egui::Label::new(
-                                    RichText::new(&self.status).size(14.0).color(Color32::WHITE),
-                                )
-                                .truncate(),
-                            )
-                            .on_hover_text(&self.status);
-                        },
-                    );
-                }
-                ui.allocate_ui_with_layout(
-                    Vec2::new(actions_width, height),
-                    egui::Layout::right_to_left(egui::Align::Center),
-                    |ui| {
-                        let selected: Vec<usize> = self
-                            .apps
-                            .iter()
-                            .enumerate()
-                            .filter_map(|(index, app)| app.selected.then_some(index))
-                            .collect();
-                        let enabled = !self.busy && !selected.is_empty();
-                        let button = ui.add_enabled(
-                            enabled,
-                            primary_button("Install / update selected", Vec2::new(172.0, 42.0)),
+                                .on_hover_text(&self.status);
+                                ui.add_space(6.0);
+                                ui.add(
+                                    egui::ProgressBar::new(self.progress)
+                                        .desired_width(ui.available_width().max(120.0))
+                                        .desired_height(4.0),
+                                );
+                            },
                         );
-                        if button.clicked() {
-                            self.install_selected();
-                        }
-                    },
-                );
+                    } else {
+                        ui.allocate_ui_with_layout(
+                            Vec2::new(status_width, height),
+                            egui::Layout::left_to_right(egui::Align::Center),
+                            |ui| {
+                                ui.add(
+                                    egui::Label::new(
+                                        RichText::new(&self.status)
+                                            .size(14.0)
+                                            .color(Color32::WHITE),
+                                    )
+                                    .truncate(),
+                                )
+                                .on_hover_text(&self.status);
+                            },
+                        );
+                    }
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(actions_width, height),
+                        egui::Layout::right_to_left(egui::Align::Center),
+                        |ui| {
+                            let selected: Vec<usize> = self
+                                .apps
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(index, app)| app.selected.then_some(index))
+                                .collect();
+                            let enabled = !self.busy && !selected.is_empty();
+                            let button = ui.add_enabled(
+                                enabled,
+                                primary_button("Install / update selected", Vec2::new(172.0, 42.0)),
+                            );
+                            if button.clicked() {
+                                self.install_selected();
+                            }
+                        },
+                    );
                 });
             });
     }
