@@ -16,6 +16,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("release cache honors ETags and works offline", TestReleaseCache),
     ("downloads resume partial files and verify SHA-256", TestDownloadResume),
     ("version comparison handles prereleases", TestVersions),
+    ("responsive card grid uses two to four columns", TestResponsiveColumns),
     ("ZIP extraction rejects traversal", TestTraversal),
     ("ZIP extraction rejects symbolic links", TestSymbolicLink),
     ("every manifest package layout locates its executable", TestAllPackageLayouts),
@@ -144,6 +145,16 @@ static Task TestVersions()
     True(VersionComparer.Compare("1.2.0", "1.2.0-rc.1") > 0);
     True(VersionComparer.Compare("1.2.0-rc.2", "1.2.0-rc.10") < 0);
     True(VersionComparer.Compare("1.0", "unknown") > 0);
+    return Task.CompletedTask;
+}
+
+static Task TestResponsiveColumns()
+{
+    Equal(2, ArtCraftSuite.MainWindow.CalculateColumnCount(800));
+    Equal(2, ArtCraftSuite.MainWindow.CalculateColumnCount(1_199));
+    Equal(3, ArtCraftSuite.MainWindow.CalculateColumnCount(1_200));
+    Equal(4, ArtCraftSuite.MainWindow.CalculateColumnCount(1_600));
+    Equal(4, ArtCraftSuite.MainWindow.CalculateColumnCount(2_400));
     return Task.CompletedTask;
 }
 

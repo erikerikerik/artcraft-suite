@@ -17,12 +17,17 @@
       <Setter Property="Padding" Value="14,10" />
       <Setter Property="CornerRadius" Value="8" />
     </Style>
+    <!-- Slightly tighter buttons inside cards keep each card short enough that all seven
+         fit on screen. Declared after Button.primary/.open so it takes precedence. -->
+    <Style Selector="Border.card Button">
+      <Setter Property="Padding" Value="14,7" />
+    </Style>
     <Style Selector="Border.card">
       <Setter Property="Background" Value="#171923" />
       <Setter Property="BorderBrush" Value="#2B2E3C" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="12" />
-      <Setter Property="Padding" Value="16" />
+      <Setter Property="Padding" Value="12" />
       <Setter Property="Margin" Value="0,0,0,10" />
     </Style>
   </Application.Styles>

@@ -3,7 +3,7 @@
         xmlns:vm="using:ArtCraftSuite.ViewModels"
         x:Class="ArtCraftSuite.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="ArtCraft Suite" Width="1040" Height="720" MinWidth="880" MinHeight="600" WindowState="Maximized"
+        Title="ArtCraft Suite" Width="1280" Height="720" MinWidth="880" MinHeight="600" WindowState="Maximized"
         Background="#0D0F16">
   <Grid RowDefinitions="Auto,*,Auto">
     <Border Grid.Row="0" Background="#12141E" Padding="28,22" BorderBrush="#292C3A" BorderThickness="0,0,0,1">
@@ -21,10 +21,12 @@
       </Grid>
     </Border>
 
-    <Grid Grid.Row="1" Margin="23,12" RowDefinitions="Auto,*">
+    <Grid Grid.Row="1" Margin="23,12,23,8" RowDefinitions="Auto,*">
         <TextBlock Text="APPLICATIONS" FontSize="12" FontWeight="Bold" Foreground="#72798D" LetterSpacing="1.5" Margin="5,0,0,5" />
       <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <ItemsControl ItemsSource="{Binding Apps}" Margin="0,0,0,24">
+        <!-- Columns are set from the available width in MainWindow.axaml.cs (2 to 4), so wide
+             and maximized windows show every app without scrolling. -->
+        <ItemsControl x:Name="AppList" ItemsSource="{Binding Apps}" Margin="0,0,0,4" VerticalAlignment="Top">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <UniformGrid Columns="2" />
@@ -33,32 +35,32 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AppItemViewModel">
               <Border Classes="card" Margin="5" Background="{Binding CardBackground}" BorderBrush="{Binding CardBorder}" ToolTip.Tip="{Binding Error}">
-                <Grid ColumnDefinitions="Auto,54,*" RowDefinitions="Auto,Auto,Auto">
-                  <CheckBox Grid.Column="0" Grid.RowSpan="3" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                  <Border Grid.Column="1" Grid.RowSpan="3" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center" ClipToBounds="True">
+                <Grid ColumnDefinitions="Auto,54,*" RowDefinitions="Auto,Auto">
+                  <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                  <Border Grid.Column="1" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center" ClipToBounds="True">
                     <Image Source="{Binding Icon}" Width="44" Height="44" Stretch="UniformToFill" />
                   </Border>
-                  <Grid Grid.Column="2" Margin="8,0,0,0" ColumnDefinitions="*,Auto">
-                    <StackPanel Margin="0,0,10,0">
-                      <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
-                      <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
-                      <TextBlock Text="{Binding VersionSummary}" Foreground="#7F8799" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                  <StackPanel Grid.Column="2" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      <Border Grid.Column="1" Background="#242738" CornerRadius="10" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold" Foreground="#D8DCE8" />
+                      </Border>
+                    </Grid>
+                    <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Description}" />
+                    <TextBlock Text="{Binding VersionSummary}" Foreground="#7F8799" FontSize="11" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding VersionSummary}" />
+                  </StackPanel>
+                  <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                    <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" HorizontalAlignment="Left" VerticalAlignment="Center"
+                            IsVisible="{Binding HasRelease}" ToolTip.Tip="The download must match its published SHA-256 checksum before it is installed.">
+                      <TextBlock Text="✓ SHA-256" FontSize="10" FontWeight="Bold" Foreground="#83F0BE" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="10,0,0,0">
+                      <Button Classes="open" Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}" />
+                      <Button Content="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}" />
+                      <Button Classes="primary" Content="{Binding ActionLabel}" Command="{Binding InstallCommand}" />
                     </StackPanel>
-                    <TextBlock Grid.Column="1" Text="{Binding ReleaseLabel}" HorizontalAlignment="Right" Foreground="#A998FF" FontSize="12" />
                   </Grid>
-                  <StackPanel Grid.Column="2" Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="8,7,0,0">
-                    <Border Background="#242738" CornerRadius="10" Padding="8,3">
-                      <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold" Foreground="#D8DCE8" />
-                    </Border>
-                    <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" IsVisible="{Binding HasRelease}">
-                      <TextBlock Text="{Binding VerificationLabel}" FontSize="10" FontWeight="Bold" Foreground="#83F0BE" />
-                    </Border>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Grid.Row="2" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" Margin="8,8,0,0">
-                    <Button Classes="open" Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}" />
-                    <Button Content="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}" />
-                    <Button Classes="primary" Content="{Binding ActionLabel}" Command="{Binding InstallCommand}" />
-                  </StackPanel>
                 </Grid>
               </Border>
             </DataTemplate>

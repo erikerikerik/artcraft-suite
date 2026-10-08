@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.3.3 — 2026-10-08
+
+### Fixed
+
+- All seven application cards now fit on screen without scrolling in a maximized
+  window on common displays, including 1920×1080 at 150% scaling, and in the
+  restored 1280×720 window.
+- On wide windows, cards no longer stretch to fill the leftover height.
+
+### Changed
+
+- Cards flow into two, three or four columns depending on the window width, and
+  never get narrower than their buttons need.
+- Cards are more compact. The status chip sits beside the app name, replacing the
+  duplicate "Available" label, and the SHA-256 chip shares a row with the buttons.
+  Its tooltip explains the checksum requirement.
+- The restored window size is now 1280×720. The window still opens maximized.
+
 ## 0.3.2 — 2026-10-08
 
 ### Changed
