@@ -40,6 +40,23 @@ pub fn resolve_release(
     channel: &str,
     platform: &str,
 ) -> Result<ResolvedRelease, String> {
+    match resolve_release_from_api(app, channel, platform) {
+        Ok(release) => Ok(release),
+        Err(api_error) if channel == "Stable" => resolve_stable_release_without_api(app, platform)
+            .map_err(|fallback_error| {
+                format!(
+                    "GitHub API request failed ({api_error}); release fallback failed ({fallback_error})"
+                )
+            }),
+        Err(error) => Err(error),
+    }
+}
+
+fn resolve_release_from_api(
+    app: &AppManifest,
+    channel: &str,
+    platform: &str,
+) -> Result<ResolvedRelease, String> {
     if platform == "unsupported" {
         return Err("This platform is not supported yet".into());
     }
@@ -87,6 +104,70 @@ pub fn resolve_release(
         asset,
         sha256,
     })
+}
+
+fn resolve_stable_release_without_api(
+    app: &AppManifest,
+    platform: &str,
+) -> Result<ResolvedRelease, String> {
+    if platform == "unsupported" {
+        return Err("This platform is not supported yet".into());
+    }
+    let latest_url = format!("https://github.com/{}/releases/latest", app.repository);
+    let effective_url = curl_effective_url(&latest_url)?;
+    let tag = effective_url
+        .split("/releases/tag/")
+        .nth(1)
+        .and_then(|value| value.split(['?', '#']).next())
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("Could not determine the latest {} release", app.name))?;
+    let version = tag.trim_start_matches(['v', 'V']).to_owned();
+    let template = app
+        .asset_patterns
+        .get(platform)
+        .ok_or_else(|| format!("{} has no package rule for {platform}", app.name))?;
+    let asset_name = concrete_asset_name(template, app.package_id(), &version)?;
+    let release_root = format!(
+        "https://github.com/{}/releases/download/{tag}",
+        app.repository
+    );
+    let checksum_url = format!("{release_root}/SHA256SUMS.txt");
+    let checksum_text = String::from_utf8(curl_bytes(&checksum_url)?)
+        .map_err(|error| format!("Checksum file was not UTF-8: {error}"))?;
+    let sha256 = checksum_for_file(&checksum_text, &asset_name).ok_or_else(|| {
+        format!(
+            "{} does not publish a SHA-256 for {asset_name}",
+            app.name
+        )
+    })?;
+
+    Ok(ResolvedRelease {
+        version,
+        asset: ApiAsset {
+            name: asset_name.clone(),
+            browser_download_url: format!("{release_root}/{asset_name}"),
+            size: 0,
+            digest: Some(format!("sha256:{sha256}")),
+        },
+        sha256,
+    })
+}
+
+fn concrete_asset_name(template: &str, package_id: &str, version: &str) -> Result<String, String> {
+    let name = template.strip_prefix('^').unwrap_or(template);
+    let name = name
+        .strip_suffix('$')
+        .unwrap_or(name)
+        .replace("{id}", package_id)
+        .replace("{version}", version)
+        .replace("\\.", ".");
+    if name
+        .chars()
+        .any(|character| matches!(character, '\\' | '^' | '$' | '(' | ')' | '[' | ']' | '|' | '*' | '+' | '?'))
+    {
+        return Err("Package rule is too complex for the release fallback".into());
+    }
+    Ok(name)
 }
 
 pub fn download_verified(
@@ -242,6 +323,10 @@ fn read_checksum_asset(assets: &[ApiAsset], file_name: &str) -> Result<Option<St
     };
     let text = String::from_utf8(curl_bytes(&checksums.browser_download_url)?)
         .map_err(|error| format!("Checksum file was not UTF-8: {error}"))?;
+    Ok(checksum_for_file(&text, file_name))
+}
+
+fn checksum_for_file(text: &str, file_name: &str) -> Option<String> {
     for line in text.lines() {
         let mut parts = line.split_whitespace();
         let Some(hash) = parts.next() else { continue };
@@ -250,10 +335,10 @@ fn read_checksum_asset(assets: &[ApiAsset], file_name: &str) -> Result<Option<St
             && hash.len() == 64
             && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
-            return Ok(Some(hash.to_ascii_lowercase()));
+            return Some(hash.to_ascii_lowercase());
         }
     }
-    Ok(None)
+    None
 }
 
 #[cfg(target_os = "windows")]
@@ -343,6 +428,10 @@ fn curl_bytes(url: &str) -> Result<Vec<u8>, String> {
             "20",
             "--user-agent",
             USER_AGENT,
+            "--header",
+            "Accept: application/vnd.github+json",
+            "--header",
+            "X-GitHub-Api-Version: 2022-11-28",
             url,
         ])
         .output()
@@ -354,6 +443,39 @@ fn curl_bytes(url: &str) -> Result<Vec<u8>, String> {
         ));
     }
     Ok(output.stdout)
+}
+
+fn curl_effective_url(url: &str) -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let null_device = "NUL";
+    #[cfg(not(target_os = "windows"))]
+    let null_device = "/dev/null";
+    let output = child_command(curl_program())
+        .args([
+            "-fsSL",
+            "--retry",
+            "2",
+            "--connect-timeout",
+            "20",
+            "--user-agent",
+            USER_AGENT,
+            "--output",
+            null_device,
+            "--write-out",
+            "%{url_effective}",
+            url,
+        ])
+        .output()
+        .map_err(|error| format!("Could not start network request: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "Network request failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    String::from_utf8(output.stdout)
+        .map(|value| value.trim().to_owned())
+        .map_err(|error| format!("GitHub returned an invalid release URL: {error}"))
 }
 
 fn sha256_file(path: &Path) -> Result<String, String> {
@@ -528,5 +650,30 @@ mod tests {
         );
         assert_eq!(parse_digest("sha256:nope"), None);
         assert_eq!(parse_digest(&format!("sha512:{}", "a".repeat(64))), None);
+    }
+
+    #[test]
+    fn release_fallback_builds_literal_asset_name() {
+        let name = concrete_asset_name(
+            "^{id}-{version}-windows-x64-portable\\.zip$",
+            "photocraft",
+            "0.5.0",
+        )
+        .unwrap();
+        assert_eq!(name, "photocraft-0.5.0-windows-x64-portable.zip");
+    }
+
+    #[test]
+    fn checksum_parser_matches_the_requested_asset() {
+        let expected = "a".repeat(64);
+        let text = format!(
+            "{}  other.zip\n{} *photocraft-0.5.0-windows-x64-portable.zip\n",
+            "b".repeat(64),
+            expected
+        );
+        assert_eq!(
+            checksum_for_file(&text, "photocraft-0.5.0-windows-x64-portable.zip"),
+            Some(expected)
+        );
     }
 }

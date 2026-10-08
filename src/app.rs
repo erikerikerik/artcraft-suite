@@ -200,8 +200,10 @@ impl ArtCraftSuite {
                                     ready += 1;
                                 }
                                 Err(error) => {
-                                    entry.release = None;
                                     entry.error = Some(error);
+                                    if entry.release.is_some() {
+                                        ready += 1;
+                                    }
                                 }
                             }
                         }
@@ -280,14 +282,8 @@ impl ArtCraftSuite {
                     .stroke(Stroke::new(1.0, Color32::from_rgb(41, 44, 58))),
             )
             .show(root, |ui| {
-                ui.horizontal(|ui| {
-                    let height = ui.available_height();
-                    let controls_width = 320.0;
-                    let copy_width =
-                        (ui.available_width() - controls_width - ui.spacing().item_spacing.x)
-                            .max(320.0);
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(copy_width, height),
+                ui.columns(2, |columns| {
+                    columns[0].with_layout(
                         egui::Layout::top_down(egui::Align::Min),
                         |ui| {
                             ui.label(
@@ -311,8 +307,7 @@ impl ArtCraftSuite {
                             );
                         },
                     );
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(controls_width, height),
+                    columns[1].with_layout(
                         egui::Layout::right_to_left(egui::Align::Center),
                         |ui| {
                             let refresh = ui.add_enabled(
@@ -569,18 +564,7 @@ impl ArtCraftSuite {
                                             self.remove_one(index);
                                         }
                                     }
-                                    let label = if installed {
-                                        let different = self.apps[index]
-                                            .release
-                                            .as_ref()
-                                            .zip(self.apps[index].installed.as_ref())
-                                            .is_some_and(|(release, current)| {
-                                                release.version != current.version
-                                            });
-                                        if different { "Update" } else { "Reinstall" }
-                                    } else {
-                                        "Install"
-                                    };
+                                    let label = if installed { "Update" } else { "Install" };
                                     let can_install =
                                         !self.busy && self.apps[index].release.is_some();
                                     if ui
@@ -636,7 +620,7 @@ impl eframe::App for ArtCraftSuite {
                 ui.add_space(7.0);
                 let gap = 10.0;
                 let width = (ui.available_width() - gap) / 2.0;
-                let height = ((ui.available_height() - gap * 3.0) / 4.0).clamp(100.0, 116.0);
+                let height = ((ui.available_height() - gap * 3.0) / 4.0).clamp(92.0, 104.0);
                 for row in 0..4 {
                     ui.horizontal(|ui| {
                         let left = row * 2;
