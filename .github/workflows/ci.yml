@@ -82,7 +82,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y dpkg-dev desktop-file-utils pkg-config jq xvfb \
             libx11-dev libxcursor-dev libxi-dev libxrandr-dev libxinerama-dev \
-            libxkbcommon-dev libwayland-dev libgl1-mesa-dev libgl1-mesa-dri
+            libxkbcommon-dev libxkbcommon-x11-0 libwayland-dev libgl1-mesa-dev libgl1-mesa-dri
       - name: Test Rust installer
         run: cargo test --locked --manifest-path src/rust-linux/Cargo.toml
       - name: Build Ubuntu manager

@@ -50,7 +50,7 @@ Section: graphics
 Priority: optional
 Architecture: $arch
 Maintainer: erikerikerik <erikerikerik@users.noreply.github.com>
-Depends: $dependencies, libgl1, libxkbcommon0
+Depends: $dependencies, libgl1, libxkbcommon0, libxkbcommon-x11-0
 Description: Windowed installer and update manager for ArtCraft creative apps
  Download verified ArtCraft AppImages, install them for the current user,
  and manage updates, launching, and removal without administrator access.
