@@ -465,10 +465,7 @@ fn install_dmg(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
             .then_some(target)
             .ok_or_else(|| "Could not copy app bundle".to_owned())
     })();
-    let _ = child_command("hdiutil")
-        .arg("detach")
-        .arg(&mount)
-        .status();
+    let _ = child_command("hdiutil").arg("detach").arg(&mount).status();
     result
 }
 

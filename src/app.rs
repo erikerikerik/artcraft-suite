@@ -487,9 +487,7 @@ impl ArtCraftSuite {
                                                 "Checking…".into()
                                             }
                                         });
-                                    ui.label(
-                                        RichText::new(release_label).size(11.0).color(PURPLE),
-                                    );
+                                    ui.label(RichText::new(release_label).size(11.0).color(PURPLE));
                                 },
                             );
                             ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
