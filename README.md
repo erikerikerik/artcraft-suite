@@ -8,6 +8,8 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
+![ArtCraft Suite Manager showing all seven creative applications in its responsive window](docs/images/artcraft-suite-0.3.3-preview-1080p-150pct.png)
+
 ## What works
 
 - Finds PhotoCraft, VectorCraft, DesignCraft, FilmCraft, EffectCraft, LightCraft,
