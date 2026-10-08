@@ -358,14 +358,10 @@ fn curl_bytes(url: &str) -> Result<Vec<u8>, String> {
 
 fn sha256_file(path: &Path) -> Result<String, String> {
     #[cfg(target_os = "windows")]
-    let output = child_command("powershell.exe")
-        .args([
-            "-NoProfile",
-            "-NonInteractive",
-            "-Command",
-            "(Get-FileHash -LiteralPath $args[0] -Algorithm SHA256).Hash",
-        ])
+    let output = child_command("certutil.exe")
+        .arg("-hashfile")
         .arg(path)
+        .arg("SHA256")
         .output()
         .map_err(|error| format!("Could not verify package: {error}"))?;
     #[cfg(not(target_os = "windows"))]
@@ -381,14 +377,11 @@ fn sha256_file(path: &Path) -> Result<String, String> {
         ));
     }
     let text = String::from_utf8_lossy(&output.stdout);
-    let hash = text
-        .split_whitespace()
-        .next()
-        .ok_or_else(|| "Checksum tool returned no hash".to_owned())?;
-    if hash.len() != 64 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
-        return Err("Checksum tool returned an invalid SHA-256".into());
-    }
-    Ok(hash.to_ascii_lowercase())
+    text.split_whitespace()
+        .map(|part| part.trim())
+        .find(|part| part.len() == 64 && part.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "Checksum tool returned no valid SHA-256".to_owned())
 }
 
 #[cfg(target_os = "windows")]
