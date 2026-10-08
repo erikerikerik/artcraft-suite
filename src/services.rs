@@ -381,12 +381,15 @@ fn install_zip(app: &AppManifest, package: &Path) -> Result<PathBuf, String> {
 #[cfg(target_os = "windows")]
 fn extract_zip_safely(package: &Path, destination: &Path) -> Result<(), String> {
     let script = r#"
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [IO.Compression.ZipFile]::OpenRead($args[0])
-$root = [IO.Path]::GetFullPath($args[1]) + [IO.Path]::DirectorySeparatorChar
+$package = [Environment]::GetEnvironmentVariable('ARTCRAFT_SUITE_PACKAGE')
+$destination = [Environment]::GetEnvironmentVariable('ARTCRAFT_SUITE_DESTINATION')
+$archive = [IO.Compression.ZipFile]::OpenRead($package)
+$root = [IO.Path]::GetFullPath($destination) + [IO.Path]::DirectorySeparatorChar
 try {
   foreach ($entry in $archive.Entries) {
-    $target = [IO.Path]::GetFullPath([IO.Path]::Combine($args[1], $entry.FullName))
+    $target = [IO.Path]::GetFullPath([IO.Path]::Combine($destination, $entry.FullName))
     if (-not $target.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe path in ZIP package.' }
     if ([String]::IsNullOrEmpty($entry.Name)) { [IO.Directory]::CreateDirectory($target) | Out-Null; continue }
     [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($target)) | Out-Null
@@ -396,8 +399,8 @@ try {
 "#;
     let output = child_command("powershell.exe")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
-        .arg(package)
-        .arg(destination)
+        .env("ARTCRAFT_SUITE_PACKAGE", package)
+        .env("ARTCRAFT_SUITE_DESTINATION", destination)
         .output()
         .map_err(|error| format!("Could not extract package: {error}"))?;
     if !output.status.success() {
