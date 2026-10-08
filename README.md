@@ -4,7 +4,7 @@ A lightweight, independent installer and update manager for the seven open-sourc
 [ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
 Rust macOS Apple Silicon manager are available.
 
-> **Independent source-available project:** this repository is not maintained, sponsored, or endorsed
+> **Independent open-source project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
 > official GitHub releases.
 
@@ -81,12 +81,8 @@ license.
 
 ## License
 
-ArtCraft Suite Manager may be used, modified, and redistributed for personal,
-non-commercial purposes with prominent source credit. Commercial use is prohibited
-unless separately approved and licensed in writing by the original author. See
-[`LICENSE`](LICENSE) for the complete terms.
-
-This restriction means the manager is **source-available, not OSI open source**.
+ArtCraft Suite Manager is licensed under the Apache License, Version 2.0.
+See [`LICENSE`](LICENSE) for the terms and [`NOTICE`](NOTICE) for attribution.
 The upstream ArtCraft applications and other dependencies keep their own licenses
 and attributions, listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
