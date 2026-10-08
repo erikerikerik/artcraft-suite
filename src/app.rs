@@ -395,24 +395,32 @@ impl ArtCraftSuite {
                         ui.set_min_size(size - Vec2::splat(28.0));
                         ui.set_max_size(size - Vec2::splat(28.0));
                         ui.horizontal(|ui| {
-                            ui.add_space(2.0);
-                            ui.vertical_centered(|ui| {
-                                ui.add_space(((size.y - 58.0) * 0.5).max(0.0));
-                                ui.add_enabled(
-                                    !self.busy,
-                                    egui::Checkbox::without_text(&mut self.apps[index].selected),
-                                );
-                            });
-                            ui.add_space(8.0);
-                            ui.vertical_centered(|ui| {
-                                ui.add_space(((size.y - 72.0) * 0.5).max(0.0));
-                                if let Some(icon) = self.icons.get(&self.apps[index].manifest.id) {
-                                    ui.add(
-                                        egui::Image::new((icon.id(), Vec2::splat(44.0)))
-                                            .corner_radius(10.0),
+                            ui.allocate_ui_with_layout(
+                                Vec2::new(28.0, size.y - 28.0),
+                                egui::Layout::centered_and_justified(egui::Direction::TopDown),
+                                |ui| {
+                                    ui.add_enabled(
+                                        !self.busy,
+                                        egui::Checkbox::without_text(
+                                            &mut self.apps[index].selected,
+                                        ),
                                     );
-                                }
-                            });
+                                },
+                            );
+                            ui.add_space(8.0);
+                            ui.allocate_ui_with_layout(
+                                Vec2::new(52.0, size.y - 28.0),
+                                egui::Layout::centered_and_justified(egui::Direction::TopDown),
+                                |ui| {
+                                    if let Some(icon) = self.icons.get(&self.apps[index].manifest.id)
+                                    {
+                                        ui.add(
+                                            egui::Image::new((icon.id(), Vec2::splat(44.0)))
+                                                .corner_radius(10.0),
+                                        );
+                                    }
+                                },
+                            );
                             ui.add_space(8.0);
                             let right_width = if installed { 224.0 } else { 122.0 };
                             let middle_width =
