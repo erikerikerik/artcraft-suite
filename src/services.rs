@@ -129,6 +129,7 @@ pub fn load_state() -> InstallState {
         .unwrap_or_default()
 }
 
+#[cfg(any(target_os = "windows", target_os = "macos"))]
 pub fn install(
     app: &AppManifest,
     release: &ResolvedRelease,
@@ -138,8 +139,6 @@ pub fn install(
     let launch_path = install_zip(app, package)?;
     #[cfg(target_os = "macos")]
     let launch_path = install_dmg(app, package)?;
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    return Err("Installation is not supported on this platform".into());
 
     let installed = InstalledApp {
         id: app.id.clone(),
@@ -156,6 +155,15 @@ pub fn install(
     state.apps.insert(app.id.clone(), installed.clone());
     save_state(&state)?;
     Ok(installed)
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn install(
+    _app: &AppManifest,
+    _release: &ResolvedRelease,
+    _package: &Path,
+) -> Result<InstalledApp, String> {
+    Err("Installation is not supported on this platform".into())
 }
 
 pub fn uninstall(id: &str) -> Result<(), String> {
