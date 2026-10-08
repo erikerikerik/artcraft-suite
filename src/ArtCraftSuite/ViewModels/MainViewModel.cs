@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using ArtCraftSuite.Models;
 using ArtCraftSuite.Services;
 
@@ -250,7 +252,7 @@ public sealed class AppItemViewModel : ObservableObject
     public string Name => Manifest.Name;
     public string Description => Manifest.Description;
     public string Accent => Manifest.Accent;
-    public string IconUri => $"avares://ArtCraftSuite/Assets/icons/{Manifest.Id}.png";
+    public Bitmap Icon { get; }
     public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
     public InstalledApp? Installed { get => _installed; set { if (Set(ref _installed, value)) RaiseStatus(); } }
     public ResolvedRelease? Release { get => _release; set { if (Set(ref _release, value)) RaiseStatus(); } }
@@ -302,6 +304,7 @@ public sealed class AppItemViewModel : ObservableObject
     public AppItemViewModel(AppManifest manifest, InstalledApp? installed, Func<bool> isBusy, Func<AppItemViewModel, Task> install, Func<AppItemViewModel, Task> remove, Action<AppItemViewModel> open)
     {
         Manifest = manifest; _installed = installed; _isBusy = isBusy;
+        using (var icon = AssetLoader.Open(new Uri($"avares://ArtCraftSuite/Assets/icons/{manifest.Id}.png"))) Icon = new Bitmap(icon);
         InstallCommand = new(() => install(this), () => !_isBusy() && Release is not null);
         RemoveCommand = new(() => remove(this), () => !_isBusy() && IsInstalled);
         OpenCommand = new RelayCommand(() => open(this), () => !_isBusy() && IsInstalled);

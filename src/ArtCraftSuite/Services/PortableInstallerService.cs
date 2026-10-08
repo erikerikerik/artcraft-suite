@@ -36,8 +36,14 @@ public sealed class PortableInstallerService
             var json = ReadWithRetry(StatePath);
             try
             {
-                var state = JsonSerializer.Deserialize<InstallState>(json, JsonOptions);
-                if (state is not null) return state;
+                var (state, migrated) = DeserializeState(json);
+                if (migrated)
+                {
+                    try { SaveState(state); }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+                return state;
             }
             catch (JsonException) { }
 
@@ -259,8 +265,70 @@ public sealed class PortableInstallerService
     private InstallState ReadStateWithoutRecovery()
     {
         if (!File.Exists(StatePath)) return new InstallState();
-        try { return JsonSerializer.Deserialize<InstallState>(ReadWithRetry(StatePath), JsonOptions) ?? new InstallState(); }
+        try { return DeserializeState(ReadWithRetry(StatePath)).State; }
         catch (JsonException) { return new InstallState(); }
+    }
+
+    private static (InstallState State, bool Migrated) DeserializeState(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            throw new JsonException("The install state root must be an object.");
+
+        var state = new InstallState();
+        if (!TryGetProperty(document.RootElement, "Apps", out var apps)) return (state, false);
+        if (apps.ValueKind != JsonValueKind.Object) throw new JsonException("The install state apps value must be an object.");
+
+        var migrated = !document.RootElement.TryGetProperty("Apps", out _);
+        foreach (var entry in apps.EnumerateObject())
+        {
+            if (entry.Value.ValueKind != JsonValueKind.Object) throw new JsonException($"Install state entry '{entry.Name}' must be an object.");
+            var item = entry.Value;
+            var id = ReadString(item, "Id", "id") ?? entry.Name;
+            var version = ReadString(item, "Version", "version") ?? UnknownVersion;
+            var executable = ReadString(item, "ExecutablePath", "executablePath", "launchPath", "launch_path");
+            if (string.IsNullOrWhiteSpace(executable)) throw new JsonException($"Install state entry '{entry.Name}' has no executable path.");
+
+            var sourceAsset = ReadString(item, "SourceAsset", "sourceAsset", "source_asset") ?? string.Empty;
+            var sha256 = ReadString(item, "Sha256", "sha256") ?? string.Empty;
+            var installedAt = ReadInstalledAt(item);
+            if (!item.TryGetProperty("Id", out _) || !item.TryGetProperty("ExecutablePath", out _) || !item.TryGetProperty("InstalledAt", out _))
+                migrated = true;
+            state.Apps[id] = new InstalledApp(id, version, executable, sourceAsset, sha256, installedAt);
+        }
+        return (state, migrated);
+    }
+
+    private static DateTimeOffset ReadInstalledAt(JsonElement item)
+    {
+        if (TryGetProperty(item, "InstalledAt", out var installedAt) && installedAt.ValueKind == JsonValueKind.String
+            && installedAt.TryGetDateTimeOffset(out var timestamp)) return timestamp;
+        if (TryGetProperty(item, "installedAtUnix", out var unix) && unix.TryGetInt64(out var seconds))
+        {
+            try { return DateTimeOffset.FromUnixTimeSeconds(seconds); }
+            catch (ArgumentOutOfRangeException ex) { throw new JsonException("The legacy install timestamp is out of range.", ex); }
+        }
+        return DateTimeOffset.UnixEpoch;
+    }
+
+    private static string? ReadString(JsonElement element, params string[] names)
+    {
+        foreach (var name in names)
+            if (TryGetProperty(element, name, out var value) && value.ValueKind == JsonValueKind.String)
+                return value.GetString();
+        return null;
+    }
+
+    private static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
+    {
+        foreach (var property in element.EnumerateObject())
+        {
+            if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) continue;
+            value = property.Value;
+            return true;
+        }
+        value = default;
+        return false;
     }
 
     private void SaveJournal(string path, InstallJournal journal)

@@ -24,7 +24,7 @@
     <Grid Grid.Row="1" Margin="23,12" RowDefinitions="Auto,*">
         <TextBlock Text="APPLICATIONS" FontSize="12" FontWeight="Bold" Foreground="#72798D" LetterSpacing="1.5" Margin="5,0,0,5" />
       <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <ItemsControl ItemsSource="{Binding Apps}">
+        <ItemsControl ItemsSource="{Binding Apps}" Margin="0,0,0,24">
           <ItemsControl.ItemsPanel>
             <ItemsPanelTemplate>
               <UniformGrid Columns="2" />
@@ -33,31 +33,31 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:AppItemViewModel">
               <Border Classes="card" Margin="5" Background="{Binding CardBackground}" BorderBrush="{Binding CardBorder}" ToolTip.Tip="{Binding Error}">
-                <Grid ColumnDefinitions="Auto,54,*,Auto" RowDefinitions="Auto,Auto">
-                  <CheckBox Grid.Column="0" Grid.RowSpan="2" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                  <Border Grid.Column="1" Grid.RowSpan="2" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center" ClipToBounds="True">
-                    <Image Source="{Binding IconUri}" Width="44" Height="44" Stretch="UniformToFill" />
+                <Grid ColumnDefinitions="Auto,54,*" RowDefinitions="Auto,Auto,Auto">
+                  <CheckBox Grid.Column="0" Grid.RowSpan="3" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                  <Border Grid.Column="1" Grid.RowSpan="3" Width="44" Height="44" CornerRadius="10" Background="{Binding Accent}" VerticalAlignment="Center" ClipToBounds="True">
+                    <Image Source="{Binding Icon}" Width="44" Height="44" Stretch="UniformToFill" />
                   </Border>
-                  <StackPanel Grid.Column="2" Grid.RowSpan="2" Margin="8,0,10,0" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="{Binding VersionSummary}" Foreground="#7F8799" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
-                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,5,0,0">
-                      <Border Background="#242738" CornerRadius="10" Padding="8,3">
-                        <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold" Foreground="#D8DCE8" />
-                      </Border>
-                      <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" IsVisible="{Binding HasRelease}">
-                        <TextBlock Text="{Binding VerificationLabel}" FontSize="10" FontWeight="Bold" Foreground="#83F0BE" />
-                      </Border>
+                  <Grid Grid.Column="2" Margin="8,0,0,0" ColumnDefinitions="*,Auto">
+                    <StackPanel Margin="0,0,10,0">
+                      <TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" />
+                      <TextBlock Text="{Binding Description}" Foreground="#979EAF" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding VersionSummary}" Foreground="#7F8799" FontSize="11" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding ReleaseLabel}" HorizontalAlignment="Right" Foreground="#A998FF" FontSize="12" />
+                  </Grid>
+                  <StackPanel Grid.Column="2" Grid.Row="1" Orientation="Horizontal" Spacing="6" Margin="8,7,0,0">
+                    <Border Background="#242738" CornerRadius="10" Padding="8,3">
+                      <TextBlock Text="{Binding StateLabel}" FontSize="10" FontWeight="Bold" Foreground="#D8DCE8" />
+                    </Border>
+                    <Border Background="#164B38" BorderBrush="#39C98A" BorderThickness="1" CornerRadius="10" Padding="8,3" IsVisible="{Binding HasRelease}">
+                      <TextBlock Text="{Binding VerificationLabel}" FontSize="10" FontWeight="Bold" Foreground="#83F0BE" />
+                    </Border>
                   </StackPanel>
-                  <StackPanel Grid.Column="3" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding ReleaseLabel}" HorizontalAlignment="Right" Foreground="#A998FF" FontSize="12" Margin="0,0,0,6" />
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                      <Button Classes="open" Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}" />
-                      <Button Content="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}" />
-                      <Button Classes="primary" Content="{Binding ActionLabel}" Command="{Binding InstallCommand}" />
-                    </StackPanel>
+                  <StackPanel Grid.Column="2" Grid.Row="2" Orientation="Horizontal" Spacing="5" HorizontalAlignment="Right" Margin="8,8,0,0">
+                    <Button Classes="open" Content="Open" Command="{Binding OpenCommand}" IsVisible="{Binding IsInstalled}" />
+                    <Button Content="Remove" Command="{Binding RemoveCommand}" IsVisible="{Binding IsInstalled}" />
+                    <Button Classes="primary" Content="{Binding ActionLabel}" Command="{Binding InstallCommand}" />
                   </StackPanel>
                 </Grid>
               </Border>

@@ -19,6 +19,7 @@ var tests = new (string Name, Func<Task> Run)[]
     ("ZIP extraction rejects traversal", TestTraversal),
     ("ZIP extraction rejects symbolic links", TestSymbolicLink),
     ("every manifest package layout locates its executable", TestAllPackageLayouts),
+    ("legacy Rust install state migrates without false repair warnings", TestRustStateMigration),
     ("failed updates restore the previous app and state", TestUpdateRollback),
     ("diagnostic reports are structured and copy-safe", TestDiagnostics)
 };
@@ -204,6 +205,30 @@ static async Task TestUpdateRollback()
     var restored = new PortableInstallerService(root).LoadState().Apps[app.Id];
     Equal("1.0.0", restored.Version);
     Equal("v1", await File.ReadAllTextAsync(restored.ExecutablePath));
+}
+
+static Task TestRustStateMigration()
+{
+    using var area = new TempArea();
+    var root = Path.Combine(area.Path, "data");
+    var appDirectory = Path.Combine(root, "apps", "demo");
+    Directory.CreateDirectory(appDirectory);
+    var executable = Path.Combine(appDirectory, "demo.exe");
+    File.WriteAllText(executable, "legacy executable");
+    var legacy = JsonSerializer.Serialize(new
+    {
+        apps = new Dictionary<string, object>
+        {
+            ["demo"] = new { id = "demo", version = "0.2.1", launchPath = executable, sourceAsset = "demo.zip", sha256 = "abc", installedAtUnix = 1_700_000_000L }
+        }
+    });
+    File.WriteAllText(Path.Combine(root, "state.json"), legacy);
+
+    var installed = new PortableInstallerService(root).LoadState().Apps["demo"];
+    Equal(executable, installed.ExecutablePath);
+    Equal("0.2.1", installed.Version);
+    True(File.ReadAllText(Path.Combine(root, "state.json")).Contains("ExecutablePath", StringComparison.Ordinal));
+    return Task.CompletedTask;
 }
 
 static Task TestDiagnostics()
