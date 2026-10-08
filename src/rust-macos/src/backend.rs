@@ -34,6 +34,7 @@ pub struct AppManifest {
     pub name: String,
     pub description: String,
     pub repository: String,
+    pub accent: String,
     pub asset_patterns: BTreeMap<String, String>,
 }
 
