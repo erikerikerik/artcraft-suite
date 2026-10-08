@@ -281,7 +281,14 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.horizontal(|ui| {
-                    ui.vertical(|ui| {
+                let height = ui.available_height();
+                let controls_width = 320.0;
+                let copy_width =
+                    (ui.available_width() - controls_width - ui.spacing().item_spacing.x).max(320.0);
+                ui.allocate_ui_with_layout(
+                    Vec2::new(copy_width, height),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
                         ui.label(
                             RichText::new("A R T C R A F T   S U I T E")
                                 .size(13.0)
@@ -301,8 +308,12 @@ impl ArtCraftSuite {
                                 .size(15.0)
                                 .color(Color32::from_rgb(156, 163, 180)),
                         );
-                    });
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    },
+                );
+                ui.allocate_ui_with_layout(
+                    Vec2::new(controls_width, height),
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
                         let refresh = ui.add_enabled(
                             !self.busy,
                             egui::Button::new(RichText::new("Refresh").size(15.0))
@@ -327,7 +338,8 @@ impl ArtCraftSuite {
                         if previous != self.channel {
                             self.refresh();
                         }
-                    });
+                    },
+                );
                 });
             });
     }
@@ -343,12 +355,15 @@ impl ArtCraftSuite {
             )
             .show(root, |ui| {
                 ui.horizontal(|ui| {
-                    let status_width = (ui.available_width() - 190.0).max(120.0);
+                let height = ui.available_height();
+                let actions_width = 190.0;
+                let status_width =
+                    (ui.available_width() - actions_width - ui.spacing().item_spacing.x).max(120.0);
+                if self.busy {
                     ui.allocate_ui_with_layout(
-                        Vec2::new(status_width, 42.0),
+                        Vec2::new(status_width, height),
                         egui::Layout::top_down(egui::Align::Min),
                         |ui| {
-                            ui.add_space(3.0);
                             ui.add(
                                 egui::Label::new(
                                     RichText::new(&self.status).size(14.0).color(Color32::WHITE),
@@ -356,17 +371,33 @@ impl ArtCraftSuite {
                                 .truncate(),
                             )
                             .on_hover_text(&self.status);
-                            if self.busy {
-                                ui.add_space(8.0);
-                                ui.add(
-                                    egui::ProgressBar::new(self.progress)
-                                        .desired_width(ui.available_width().max(120.0))
-                                        .desired_height(4.0),
-                                );
-                            }
+                            ui.add_space(6.0);
+                            ui.add(
+                                egui::ProgressBar::new(self.progress)
+                                    .desired_width(ui.available_width().max(120.0))
+                                    .desired_height(4.0),
+                            );
                         },
                     );
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                } else {
+                    ui.allocate_ui_with_layout(
+                        Vec2::new(status_width, height),
+                        egui::Layout::left_to_right(egui::Align::Center),
+                        |ui| {
+                            ui.add(
+                                egui::Label::new(
+                                    RichText::new(&self.status).size(14.0).color(Color32::WHITE),
+                                )
+                                .truncate(),
+                            )
+                            .on_hover_text(&self.status);
+                        },
+                    );
+                }
+                ui.allocate_ui_with_layout(
+                    Vec2::new(actions_width, height),
+                    egui::Layout::right_to_left(egui::Align::Center),
+                    |ui| {
                         let selected: Vec<usize> = self
                             .apps
                             .iter()
@@ -381,7 +412,8 @@ impl ArtCraftSuite {
                         if button.clicked() {
                             self.install_selected();
                         }
-                    });
+                    },
+                );
                 });
             });
     }
