@@ -17,7 +17,7 @@ repositories:
 Each application is separately licensed by its copyright holders. At the time
 this project was prepared, each repository identified its source license as
 Apache-2.0. The upstream license and notices shipped with each downloaded build
-govern that application. The manager's Personal Use License does not relicense
+govern that application. The manager's Apache-2.0 license does not relicense
 or grant rights to those applications, names, logos, or other trademarks.
 
 This project uses [Avalonia UI](https://github.com/AvaloniaUI/Avalonia),
