@@ -333,7 +333,7 @@ impl eframe::App for Manager {
             );
             ui.add_space(5.0);
             egui::ScrollArea::vertical().show(ui, |ui| {
-                let card_width = ((ui.available_width() - 12.0) / 2.0).max(300.0);
+                let card_width = ((ui.available_width() - 40.0) / 2.0).max(300.0);
                 for start in (0..self.apps.len()).step_by(2) {
                     ui.horizontal(|ui| {
                         self.app_card(ui, start, card_width);
