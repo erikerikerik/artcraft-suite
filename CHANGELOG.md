@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — 2026-10-08
+
+### Changed
+
+- The main window now opens maximized so all seven application cards are visible
+  immediately when the available desktop work area is tall enough. The existing
+  scrollbar remains available on smaller displays and restored windows.
+
 ## 0.3.1 — 2026-10-08
 
 ### Fixed

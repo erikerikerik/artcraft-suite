@@ -3,7 +3,7 @@
         xmlns:vm="using:ArtCraftSuite.ViewModels"
         x:Class="ArtCraftSuite.MainWindow"
         x:DataType="vm:MainViewModel"
-        Title="ArtCraft Suite" Width="1040" Height="720" MinWidth="880" MinHeight="600"
+        Title="ArtCraft Suite" Width="1040" Height="720" MinWidth="880" MinHeight="600" WindowState="Maximized"
         Background="#0D0F16">
   <Grid RowDefinitions="Auto,*,Auto">
     <Border Grid.Row="0" Background="#12141E" Padding="28,22" BorderBrush="#292C3A" BorderThickness="0,0,0,1">

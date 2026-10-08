@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <AssemblyName>ArtCraftSuite</AssemblyName>
     <RootNamespace>ArtCraftSuite</RootNamespace>
-    <Version>0.3.1</Version>
+    <Version>0.3.2</Version>
     <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('Windows'))">app.manifest</ApplicationManifest>
   </PropertyGroup>
 
