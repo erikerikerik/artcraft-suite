@@ -263,10 +263,10 @@ impl ArtCraftSuite {
                     }
                 }
             }
-            if continue_install_queue {
-                if let Some(index) = self.install_queue.pop_front() {
-                    self.install_one(index);
-                }
+            if continue_install_queue
+                && let Some(index) = self.install_queue.pop_front()
+            {
+                self.install_one(index);
             }
             ctx.request_repaint();
         }
@@ -480,15 +480,13 @@ impl ArtCraftSuite {
                                         ),
                                     )
                                     .clicked()
+                                    && let Some(entry) = self.apps[index].installed.as_ref()
+                                    && let Err(error) = services::launch(entry)
                                 {
-                                    if let Some(entry) = self.apps[index].installed.as_ref() {
-                                        if let Err(error) = services::launch(entry) {
-                                            self.status = format!(
-                                                "Could not open {}: {error}",
-                                                self.apps[index].manifest.name
-                                            );
-                                        }
-                                    }
+                                    self.status = format!(
+                                        "Could not open {}: {error}",
+                                        self.apps[index].manifest.name
+                                    );
                                 }
                                 if ui
                                     .add_enabled(

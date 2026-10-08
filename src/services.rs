@@ -6,8 +6,9 @@ use std::{
     fs,
     path::{Path, PathBuf},
     process::Command,
-    time::{SystemTime, UNIX_EPOCH},
 };
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const USER_AGENT: &str = "ArtCraft-Suite/0.2 (+https://github.com/erikerikerik/artcraft-suite)";
 
