@@ -5,6 +5,7 @@ obj/
 .DS_Store
 *.user
 artifacts/
+src/rust-macos/target/
 TestResults/
 work/
 outputs/

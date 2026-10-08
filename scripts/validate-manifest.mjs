@@ -7,7 +7,8 @@ if (manifest.apps.length !== expected.length) throw new Error('manifest must con
 for (const id of expected) {
   const app = manifest.apps.find(value => value.id === id);
   if (!app) throw new Error(`missing ${id}`);
-  if (app.repository !== `storytold/${id}`) throw new Error(`unexpected repository for ${id}`);
+  const expectedRepository = id === 'printcraft' ? 'storytold/pdfcraft' : `storytold/${id}`;
+  if (app.repository !== expectedRepository) throw new Error(`unexpected repository for ${id}`);
   for (const platform of ['windows-x64', 'macos-arm64']) {
     const pattern = app.assetPatterns?.[platform];
     if (!pattern?.startsWith('^') || !pattern.endsWith('$')) throw new Error(`${id} ${platform} pattern must be anchored`);

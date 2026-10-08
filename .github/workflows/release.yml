@@ -32,28 +32,26 @@ jobs:
             artifacts/ArtCraftSuite-windows-x64.zip
             artifacts/ArtCraftSuite-windows-x64.zip.sha256
 
-  macos-scaffold:
+  macos-arm64:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-      - name: Publish and package unsigned scaffold
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test and build Rust manager
         run: |
-          dotnet publish src/ArtCraftSuite/ArtCraftSuite.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/macos-arm64/publish
-          bash scripts/package-macos.sh artifacts/macos-arm64/publish artifacts/macos-arm64/ArtCraftSuite.app
-          ditto -c -k --sequesterRsrc --keepParent artifacts/macos-arm64/ArtCraftSuite.app artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
-          shasum -a 256 artifacts/ArtCraftSuite-macos-arm64-unsigned.zip > artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
+          cargo test --locked --manifest-path src/rust-macos/Cargo.toml
+          cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml
+      - name: Package Apple Silicon DMG
+        run: bash scripts/package-rust-macos.sh src/rust-macos/target/release/artcraft-suite-macos artifacts/macos-arm64 "${GITHUB_REF_NAME#v}"
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-scaffold-release
+          name: macos-arm64-release
           path: |
-            artifacts/ArtCraftSuite-macos-arm64-unsigned.zip
-            artifacts/ArtCraftSuite-macos-arm64-unsigned.zip.sha256
+            artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg
+            artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg.sha256
 
   release:
-    needs: [windows, macos-scaffold]
+    needs: [windows, macos-arm64]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

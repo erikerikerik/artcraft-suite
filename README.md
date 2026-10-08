@@ -1,8 +1,8 @@
 # ArtCraft Suite Manager
 
 A lightweight, independent installer and update manager for the seven open-source
-[ArtCraft crafting apps](https://github.com/storytold). The first supported target
-is Windows x64; a macOS Apple Silicon build scaffold is included.
+[ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
+Rust macOS Apple Silicon manager are available.
 
 > **Independent source-available project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
@@ -57,15 +57,14 @@ declares its upstream `owner/repository` and anchored asset-name patterns. Token
 `{id}` and `{version}` are escaped before matching. A manifest change cannot bypass
 the runtime hash requirement.
 
-## macOS Apple Silicon status
+## macOS Apple Silicon
 
-The Avalonia UI and release resolver compile for `osx-arm64`, and the manifest
-selects the official universal DMGs. The workflow packages an unsigned `.app`
-scaffold for testing. Automatic DMG mounting/copying, code signing, notarization,
-and polished distribution are intentionally not claimed as complete yet. On macOS,
-the manager reports this limitation instead of attempting a partial install.
-
-See [`docs/MACOS.md`](docs/MACOS.md) for the completion plan.
+The macOS manager is a windowed Rust application in `src/rust-macos`. It installs
+the official universal DMGs into `~/Applications/ArtCraft Suite`, verifies SHA-256
+before mounting, and supports updates, opening, and removal. It requires no
+administrator password. See [`docs/MACOS.md`](docs/MACOS.md) for build and
+distribution instructions. The older Avalonia macOS scaffold remains in the
+repository but is not the installer.
 
 ## Security and privacy
 

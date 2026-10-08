@@ -1,0 +1,22 @@
+[package]
+name = "artcraft-suite-macos"
+version = "0.1.0"
+edition = "2024"
+description = "Rust macOS Apple Silicon installer for the ArtCraft creative apps"
+license-file = "../../LICENSE"
+
+[dependencies]
+anyhow = "1"
+eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow"] }
+hex = "0.4"
+plist = "1"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tempfile = "3"
+
+[profile.release]
+strip = true
+lto = "thin"

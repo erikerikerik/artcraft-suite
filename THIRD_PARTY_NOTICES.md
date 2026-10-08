@@ -12,7 +12,7 @@ repositories:
 - [FilmCraft](https://github.com/storytold/filmcraft)
 - [EffectCraft](https://github.com/storytold/effectcraft)
 - [LightCraft](https://github.com/storytold/lightcraft)
-- [PrintCraft](https://github.com/storytold/printcraft)
+- [PrintCraft](https://github.com/storytold/pdfcraft)
 
 Each application is separately licensed by its copyright holders. At the time
 this project was prepared, each repository identified its source license as
@@ -24,3 +24,8 @@ This project uses [Avalonia UI](https://github.com/AvaloniaUI/Avalonia),
 which is distributed under the MIT License, along with its transitive runtime
 dependencies. NuGet package license metadata is included in release builds by
 their respective packages.
+
+The macOS manager uses Rust crates including [eframe](https://crates.io/crates/eframe),
+[reqwest](https://crates.io/crates/reqwest), [serde](https://crates.io/crates/serde),
+and [sha2](https://crates.io/crates/sha2). Their versions and transitive dependencies
+are recorded in `src/rust-macos/Cargo.lock`; each retains its own license.

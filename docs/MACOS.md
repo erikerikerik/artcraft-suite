@@ -1,20 +1,45 @@
-# macOS Apple Silicon scaffold
+# macOS Apple Silicon manager
 
-The project already contains the cross-platform UI, `osx-arm64` publish target,
-manifest rules for official `macos-universal.dmg` assets, and a GitHub Actions job
-that emits an unsigned `.app` archive.
+The Finder-launchable macOS manager is written in Rust with `eframe` and uses the
+same checked-in app manifest as the Windows manager. It downloads official
+universal DMGs from the seven upstream GitHub releases.
 
-Before macOS support is promoted from scaffold to supported, implement and test:
+## Build on an Apple Silicon Mac
 
-1. Mount the verified DMG with `hdiutil attach -nobrowse -readonly`.
-2. Discover exactly one expected `.app` bundle and validate its identifier.
-3. Copy it atomically into a manager-owned location or `/Applications`, with an
-   explicit permission choice in the UI.
-4. Detach the image on success, failure, and cancellation.
-5. Add launch, version discovery, update rollback, and uninstall behavior for
-   bundles without deleting user data.
-6. Sign and notarize the manager `.app`, then add staple and Gatekeeper checks to
-   release automation. Signing secrets must remain in GitHub Actions secrets.
+Install a current stable Rust toolchain and Xcode Command Line Tools, then run:
 
-The current runtime deliberately refuses installation on macOS rather than
-performing an incomplete or unsafe DMG operation.
+```sh
+cargo test --locked --manifest-path src/rust-macos/Cargo.toml
+cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml
+bash scripts/package-rust-macos.sh \
+  src/rust-macos/target/release/artcraft-suite-macos artifacts/macos-arm64
+```
+
+Open `artifacts/macos-arm64/ArtCraftSuite-macos-arm64.dmg`, drag the app to
+Applications, and launch it from Finder. The manager installs ArtCraft apps in
+`~/Applications/ArtCraft Suite`. It does not require administrator access.
+
+## Install behavior
+
+1. Resolve the selected stable or latest release from the manifest repository.
+2. Require a SHA-256 digest from the release asset or `SHA256SUMS.txt`.
+3. Download and verify the complete DMG before mounting it read-only.
+4. Discover exactly one `.app` bundle and verify its identifier and executable.
+5. Copy with `ditto` into a private staging directory, detach the image, and
+   replace the managed app bundle with rollback if the swap or state write fails.
+6. Launch with `open`; removal affects only the manager-owned app bundle. User
+   documents and app settings are outside that directory.
+
+An existing app at the managed path without manager state is never overwritten.
+
+## Signing and distribution
+
+Local builds are ad hoc signed. They are usable for local testing but are not
+notarized; Gatekeeper may require the user to approve opening the app. Set
+`APPLE_DEVELOPER_ID` to a Developer ID Application certificate name when running
+the packaging script to sign with hardened runtime. Public distribution should
+also notarize and staple the DMG using an Apple Developer account before release.
+The current GitHub Actions artifact is ad hoc signed and is not notarized.
+
+The older Avalonia `osx-arm64` scaffold remains in the repository for reference.
+The Rust DMG is the supported macOS installer target.
