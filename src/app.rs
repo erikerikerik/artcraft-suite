@@ -384,149 +384,155 @@ impl ArtCraftSuite {
             Stroke::new(1.0, BORDER)
         };
         let tooltip = self.apps[index].error.clone();
-        let response = egui::Frame::new()
-            .fill(fill)
-            .stroke(stroke)
-            .corner_radius(12.0)
-            .inner_margin(egui::Margin::same(14))
-            .show(ui, |ui| {
-                ui.set_min_size(size - Vec2::splat(28.0));
-                ui.set_max_size(size - Vec2::splat(28.0));
-                ui.horizontal(|ui| {
-                    ui.add_space(2.0);
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(((size.y - 58.0) * 0.5).max(0.0));
-                        ui.add_enabled(
-                            !self.busy,
-                            egui::Checkbox::without_text(&mut self.apps[index].selected),
-                        );
-                    });
-                    ui.add_space(8.0);
-                    ui.vertical_centered(|ui| {
-                        ui.add_space(((size.y - 72.0) * 0.5).max(0.0));
-                        if let Some(icon) = self.icons.get(&self.apps[index].manifest.id) {
-                            ui.add(
-                                egui::Image::new((icon.id(), Vec2::splat(44.0)))
-                                    .corner_radius(10.0),
-                            );
-                        }
-                    });
-                    ui.add_space(8.0);
-                    let right_width = if installed { 224.0 } else { 122.0 };
-                    let middle_width = (ui.available_width() - right_width - 12.0).max(100.0);
-                    ui.allocate_ui_with_layout(
-                        Vec2::new(middle_width, size.y - 28.0),
-                        egui::Layout::top_down(egui::Align::Min),
-                        |ui| {
-                            ui.add_space(6.0);
-                            ui.label(
-                                RichText::new(&self.apps[index].manifest.name)
-                                    .size(17.0)
-                                    .strong()
-                                    .color(Color32::WHITE),
-                            );
-                            ui.add(
-                                egui::Label::new(
-                                    RichText::new(&self.apps[index].manifest.description)
-                                        .size(14.0)
-                                        .color(MUTED),
-                                )
-                                .truncate(),
-                            );
-                            if installed {
-                                let version = &self.apps[index].installed.as_ref().unwrap().version;
-                                egui::Frame::new()
-                                    .fill(Color32::from_rgb(22, 75, 56))
-                                    .stroke(Stroke::new(1.0, GREEN))
-                                    .corner_radius(10.0)
-                                    .inner_margin(egui::Margin::symmetric(8, 3))
-                                    .show(ui, |ui| {
-                                        ui.label(
-                                            RichText::new(format!("✓ INSTALLED · {version}"))
-                                                .size(11.0)
-                                                .strong()
-                                                .color(Color32::from_rgb(131, 240, 190)),
-                                        );
-                                    });
-                            }
-                        },
-                    );
-                    ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-                        ui.add_space(3.0);
-                        let release_label = self.apps[index]
-                            .release
-                            .as_ref()
-                            .map(|release| format!("Available {}", release.version))
-                            .unwrap_or_else(|| {
-                                if self.apps[index].error.is_some() {
-                                    "Unavailable".into()
-                                } else {
-                                    "Checking…".into()
-                                }
-                            });
-                        ui.label(RichText::new(release_label).size(12.0).color(PURPLE));
-                        ui.add_space(8.0);
+        let card = ui.allocate_ui_with_layout(
+            size,
+            egui::Layout::top_down(egui::Align::Min),
+            |ui| {
+                egui::Frame::new()
+                    .fill(fill)
+                    .stroke(stroke)
+                    .corner_radius(12.0)
+                    .inner_margin(egui::Margin::same(14))
+                    .show(ui, |ui| {
+                        ui.set_min_size(size - Vec2::splat(28.0));
+                        ui.set_max_size(size - Vec2::splat(28.0));
                         ui.horizontal(|ui| {
-                            if installed {
-                                if ui
-                                    .add_enabled(
-                                        !self.busy,
-                                        action_button(
-                                            "Open",
-                                            Color32::from_rgb(35, 122, 89),
-                                            Vec2::new(56.0, 36.0),
-                                        ),
-                                    )
-                                    .clicked()
-                                    && let Some(entry) = self.apps[index].installed.as_ref()
-                                    && let Err(error) = services::launch(entry)
-                                {
-                                    self.status = format!(
-                                        "Could not open {}: {error}",
-                                        self.apps[index].manifest.name
+                            ui.add_space(2.0);
+                            ui.vertical_centered(|ui| {
+                                ui.add_space(((size.y - 58.0) * 0.5).max(0.0));
+                                ui.add_enabled(
+                                    !self.busy,
+                                    egui::Checkbox::without_text(&mut self.apps[index].selected),
+                                );
+                            });
+                            ui.add_space(8.0);
+                            ui.vertical_centered(|ui| {
+                                ui.add_space(((size.y - 72.0) * 0.5).max(0.0));
+                                if let Some(icon) = self.icons.get(&self.apps[index].manifest.id) {
+                                    ui.add(
+                                        egui::Image::new((icon.id(), Vec2::splat(44.0)))
+                                            .corner_radius(10.0),
                                     );
                                 }
-                                if ui
-                                    .add_enabled(
-                                        !self.busy,
-                                        egui::Button::new("Remove").min_size(Vec2::new(66.0, 36.0)),
-                                    )
-                                    .clicked()
-                                {
-                                    self.remove_one(index);
-                                }
-                            }
-                            let label = if installed {
-                                let different = self.apps[index]
+                            });
+                            ui.add_space(8.0);
+                            let right_width = if installed { 224.0 } else { 122.0 };
+                            let middle_width = (ui.available_width() - right_width - 12.0).max(100.0);
+                            ui.allocate_ui_with_layout(
+                                Vec2::new(middle_width, size.y - 28.0),
+                                egui::Layout::top_down(egui::Align::Min),
+                                |ui| {
+                                    ui.add_space(6.0);
+                                    ui.label(
+                                        RichText::new(&self.apps[index].manifest.name)
+                                            .size(17.0)
+                                            .strong()
+                                            .color(Color32::WHITE),
+                                    );
+                                    ui.add(
+                                        egui::Label::new(
+                                            RichText::new(&self.apps[index].manifest.description)
+                                                .size(14.0)
+                                                .color(MUTED),
+                                        )
+                                        .truncate(),
+                                    );
+                                    if installed {
+                                        let version = &self.apps[index].installed.as_ref().unwrap().version;
+                                        egui::Frame::new()
+                                            .fill(Color32::from_rgb(22, 75, 56))
+                                            .stroke(Stroke::new(1.0, GREEN))
+                                            .corner_radius(10.0)
+                                            .inner_margin(egui::Margin::symmetric(8, 3))
+                                            .show(ui, |ui| {
+                                                ui.label(
+                                                    RichText::new(format!("✓ INSTALLED · {version}"))
+                                                        .size(11.0)
+                                                        .strong()
+                                                        .color(Color32::from_rgb(131, 240, 190)),
+                                                );
+                                            });
+                                    }
+                                },
+                            );
+                            ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
+                                ui.add_space(3.0);
+                                let release_label = self.apps[index]
                                     .release
                                     .as_ref()
-                                    .zip(self.apps[index].installed.as_ref())
-                                    .is_some_and(|(release, current)| {
-                                        release.version != current.version
+                                    .map(|release| format!("Available {}", release.version))
+                                    .unwrap_or_else(|| {
+                                        if self.apps[index].error.is_some() {
+                                            "Unavailable".into()
+                                        } else {
+                                            "Checking…".into()
+                                        }
                                     });
-                                if different { "Update" } else { "Reinstall" }
-                            } else {
-                                "Install"
-                            };
-                            let can_install = !self.busy && self.apps[index].release.is_some();
-                            if ui
-                                .add_enabled(
-                                    can_install,
-                                    primary_button(
-                                        label,
-                                        Vec2::new(if installed { 86.0 } else { 82.0 }, 36.0),
-                                    ),
-                                )
-                                .clicked()
-                            {
-                                self.install_queue.clear();
-                                self.install_one(index);
-                            }
+                                ui.label(RichText::new(release_label).size(12.0).color(PURPLE));
+                                ui.add_space(8.0);
+                                ui.horizontal(|ui| {
+                                    if installed {
+                                        if ui
+                                            .add_enabled(
+                                                !self.busy,
+                                                action_button(
+                                                    "Open",
+                                                    Color32::from_rgb(35, 122, 89),
+                                                    Vec2::new(56.0, 36.0),
+                                                ),
+                                            )
+                                            .clicked()
+                                            && let Some(entry) = self.apps[index].installed.as_ref()
+                                            && let Err(error) = services::launch(entry)
+                                        {
+                                            self.status = format!(
+                                                "Could not open {}: {error}",
+                                                self.apps[index].manifest.name
+                                            );
+                                        }
+                                        if ui
+                                            .add_enabled(
+                                                !self.busy,
+                                                egui::Button::new("Remove").min_size(Vec2::new(66.0, 36.0)),
+                                            )
+                                            .clicked()
+                                        {
+                                            self.remove_one(index);
+                                        }
+                                    }
+                                    let label = if installed {
+                                        let different = self.apps[index]
+                                            .release
+                                            .as_ref()
+                                            .zip(self.apps[index].installed.as_ref())
+                                            .is_some_and(|(release, current)| {
+                                                release.version != current.version
+                                            });
+                                        if different { "Update" } else { "Reinstall" }
+                                    } else {
+                                        "Install"
+                                    };
+                                    let can_install = !self.busy && self.apps[index].release.is_some();
+                                    if ui
+                                        .add_enabled(
+                                            can_install,
+                                            primary_button(
+                                                label,
+                                                Vec2::new(if installed { 86.0 } else { 82.0 }, 36.0),
+                                            ),
+                                        )
+                                        .clicked()
+                                    {
+                                        self.install_queue.clear();
+                                        self.install_one(index);
+                                    }
+                                });
+                            });
                         });
-                    });
-                });
-            })
-            .response;
+                    })
+            },
+        );
+        let response = card.inner.response;
         if let Some(tooltip) = tooltip {
             response.on_hover_text(tooltip);
         }
@@ -558,7 +564,7 @@ impl eframe::App for ArtCraftSuite {
                 ui.add_space(7.0);
                 let gap = 10.0;
                 let width = (ui.available_width() - gap) / 2.0;
-                let height = ((ui.available_height() - gap * 3.0) / 4.0).max(86.0);
+                let height = ((ui.available_height() - gap * 3.0) / 4.0).clamp(100.0, 116.0);
                 for row in 0..4 {
                     ui.horizontal(|ui| {
                         let left = row * 2;
