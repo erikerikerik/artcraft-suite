@@ -12,7 +12,8 @@ arch="$(dpkg --print-architecture)"
 mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
 stage="$(mktemp -d "$output_dir/.deb-stage.XXXXXX")"
-trap 'rm -rf "$stage"' EXIT
+metadata="$(mktemp -d "$output_dir/.shlibdeps.XXXXXX")"
+trap 'rm -rf "$stage" "$metadata"' EXIT
 mkdir -p "$stage/DEBIAN" "$stage/usr/bin" "$stage/usr/share/applications" \
   "$stage/usr/share/icons/hicolor/scalable/apps" "$stage/usr/share/doc/artcraft-suite"
 install -m 755 "$binary" "$stage/usr/bin/artcraft-suite"
@@ -34,14 +35,26 @@ Comment=Install and update ArtCraft creative applications
 Exec=/usr/bin/artcraft-suite
 TryExec=/usr/bin/artcraft-suite
 Icon=artcraft-suite
-Categories=Graphics;Utility;
+Categories=Graphics;
 Terminal=false
 DESKTOP
 if command -v desktop-file-validate >/dev/null; then
   desktop-file-validate "$stage/usr/share/applications/artcraft-suite.desktop"
 fi
 
-dependencies="$(dpkg-shlibdeps -O -e"$stage/usr/bin/artcraft-suite" | sed -n 's/^shlibs:Depends=//p')"
+mkdir -p "$metadata/debian"
+cat > "$metadata/debian/control" <<'BUILD_CONTROL'
+Source: artcraft-suite
+Section: graphics
+Priority: optional
+Maintainer: erikerikerik <erikerikerik@users.noreply.github.com>
+Standards-Version: 4.7.0
+
+Package: artcraft-suite
+Architecture: any
+Description: Windowed installer and update manager for ArtCraft creative apps
+BUILD_CONTROL
+dependencies="$(cd "$metadata" && dpkg-shlibdeps -O -e"$stage/usr/bin/artcraft-suite" | sed -n 's/^shlibs:Depends=//p')"
 [[ -n "$dependencies" ]] || { echo "Could not determine shared library dependencies" >&2; exit 1; }
 cat > "$stage/DEBIAN/control" <<CONTROL
 Package: artcraft-suite

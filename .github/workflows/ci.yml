@@ -104,6 +104,11 @@ jobs:
           dpkg-deb --info artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
           dpkg-deb --contents artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
           cd artifacts/linux && sha256sum -c artcraft-suite_0.1.0_${{ matrix.arch }}.deb.sha256
+      - name: Install deb and check desktop integration
+        run: |
+          sudo apt-get install -y ./artifacts/linux/artcraft-suite_0.1.0_${{ matrix.arch }}.deb
+          test -x /usr/bin/artcraft-suite
+          desktop-file-validate /usr/share/applications/artcraft-suite.desktop
       - uses: actions/upload-artifact@v4
         with:
           name: ArtCraftSuite-ubuntu-${{ matrix.arch }}
