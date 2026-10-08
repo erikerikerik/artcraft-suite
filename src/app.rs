@@ -412,7 +412,8 @@ impl ArtCraftSuite {
                                 Vec2::new(52.0, size.y - 28.0),
                                 egui::Layout::centered_and_justified(egui::Direction::TopDown),
                                 |ui| {
-                                    if let Some(icon) = self.icons.get(&self.apps[index].manifest.id)
+                                    if let Some(icon) =
+                                        self.icons.get(&self.apps[index].manifest.id)
                                     {
                                         ui.add(
                                             egui::Image::new((icon.id(), Vec2::splat(44.0)))
