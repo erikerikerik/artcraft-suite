@@ -7,19 +7,47 @@ namespace ArtCraftSuite.Services;
 
 public sealed class PortableInstallerService
 {
+    public const string UnknownVersion = "unknown";
     private readonly string _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ArtCraftSuite");
     private string StatePath => Path.Combine(_root, "state.json");
     private string AppsRoot => Path.Combine(_root, "apps");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
+    /// <summary>
+    /// Loads install state. If state.json is missing or cannot be parsed, a damaged file is kept aside and
+    /// the list is rebuilt from the manager-owned app folders, so one bad file never makes the manager
+    /// forget (and later overwrite the record of) every installed app.
+    /// </summary>
     public InstallState LoadState()
     {
-        try
+        if (File.Exists(StatePath))
         {
-            if (File.Exists(StatePath)) return JsonSerializer.Deserialize<InstallState>(File.ReadAllText(StatePath), JsonOptions) ?? new();
+            // A read error (for example antivirus briefly holding the file) is retried and then surfaced;
+            // only content that fails to parse is treated as damaged.
+            var json = ReadWithRetry(StatePath);
+            try
+            {
+                var state = JsonSerializer.Deserialize<InstallState>(json, JsonOptions);
+                if (state is not null) return state;
+            }
+            catch (JsonException) { }
+
+            var damagedPath = $"{StatePath}.corrupt-{Guid.NewGuid():N}";
+            try { File.Move(StatePath, damagedPath); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new IOException("The damaged state file could not be preserved. Close other programs using it and try again.", ex);
+            }
         }
-        catch (JsonException) { }
-        return new();
+
+        var rebuilt = RebuildStateFromDisk();
+        if (rebuilt.Apps.Count > 0)
+        {
+            try { SaveState(rebuilt); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        return rebuilt;
     }
 
     public async Task<InstalledApp> InstallZipAsync(AppManifest app, ResolvedRelease release, string archive, CancellationToken ct)
@@ -42,39 +70,149 @@ public sealed class PortableInstallerService
                 .FirstOrDefault(x => Path.GetFileNameWithoutExtension(x).Equals(app.Id, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidDataException($"The verified archive did not contain {app.Id}.exe.");
             var relativeExecutable = Path.GetRelativePath(staging, executable);
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
-            if (Directory.Exists(target)) Directory.Move(target, backup);
-            try { Directory.Move(staging, target); }
-            catch { if (Directory.Exists(backup)) Directory.Move(backup, target); throw; }
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
-
-            var installed = new InstalledApp(app.Id, release.Version, Path.Combine(target, relativeExecutable), release.Asset.Name, release.Sha256, DateTimeOffset.UtcNow);
             var state = LoadState();
-            state.Apps[app.Id] = installed;
-            SaveState(state);
+            var installed = new InstalledApp(app.Id, release.Version, Path.Combine(target, relativeExecutable), release.Asset.Name, release.Sha256, DateTimeOffset.UtcNow);
+
+            // Past this point the swap must not be interrupted half-way.
+            ct.ThrowIfCancellationRequested();
+            ThrowIfRunning(app.Id, app.Name, target);
+            if (Directory.Exists(backup)) Directory.Delete(backup, true);
+            if (Directory.Exists(target))
+            {
+                try { Directory.Move(target, backup); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new InvalidOperationException($"{app.Name} appears to be open or its folder is in use. Close it and try again.", ex);
+                }
+            }
+            try
+            {
+                Directory.Move(staging, target);
+                state.Apps[app.Id] = installed;
+                SaveState(state);
+            }
+            catch (Exception installError)
+            {
+                try
+                {
+                    if (Directory.Exists(target))
+                    {
+                        var failed = Path.Combine(AppsRoot, $".{app.Id}-failed-{Guid.NewGuid():N}");
+                        Directory.Move(target, failed);
+                        TryDelete(failed);
+                    }
+                    if (Directory.Exists(backup)) Directory.Move(backup, target);
+                }
+                catch (Exception rollbackError)
+                {
+                    throw new AggregateException($"{app.Name} installation failed and the previous version could not be restored.", installError, rollbackError);
+                }
+                throw;
+            }
+            if (Directory.Exists(backup)) TryDelete(backup);
             return installed;
         }
-        finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
+        finally { if (Directory.Exists(staging)) TryDelete(staging); }
     }
 
-    public void Uninstall(string id)
+    public string? Uninstall(string id, string name)
     {
         var state = LoadState();
-        if (state.Apps.TryGetValue(id, out var installed))
+        var appDir = Path.GetFullPath(Path.Combine(AppsRoot, id));
+        var safeRoot = Path.GetFullPath(AppsRoot) + Path.DirectorySeparatorChar;
+        if (!appDir.StartsWith(safeRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsafe uninstall path.");
+
+        string? removing = null;
+        if (Directory.Exists(appDir))
         {
-            var appDir = Path.GetFullPath(Path.Combine(AppsRoot, id));
-            var safeRoot = Path.GetFullPath(AppsRoot) + Path.DirectorySeparatorChar;
-            if (!appDir.StartsWith(safeRoot, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Unsafe uninstall path.");
-            if (Directory.Exists(appDir)) Directory.Delete(appDir, true);
-            state.Apps.Remove(id);
-            SaveState(state);
+            ThrowIfRunning(id, name, appDir);
+            removing = Path.Combine(AppsRoot, $".{id}-removing-{Guid.NewGuid():N}");
+            try { Directory.Move(appDir, removing); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"{name} appears to be open or its folder is in use. Close it and try again.", ex);
+            }
         }
+
+        try
+        {
+            if (state.Apps.Remove(id)) SaveState(state);
+        }
+        catch (Exception stateError)
+        {
+            if (removing is not null)
+            {
+                try { Directory.Move(removing, appDir); }
+                catch (Exception rollbackError)
+                {
+                    throw new AggregateException($"{name} removal failed and its folder could not be restored.", stateError, rollbackError);
+                }
+            }
+            throw;
+        }
+
+        if (removing is null) return null;
+        try { Directory.Delete(removing, true); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return $"{name} was removed, but some old files remain at {removing}. Close the app and delete that folder when it is no longer in use.";
+        }
+        return null;
     }
 
     public static void Launch(InstalledApp app)
     {
         if (!File.Exists(app.ExecutablePath)) throw new FileNotFoundException("The installed application executable is missing.", app.ExecutablePath);
         Process.Start(new ProcessStartInfo(app.ExecutablePath) { UseShellExecute = true, WorkingDirectory = Path.GetDirectoryName(app.ExecutablePath) });
+    }
+
+    private InstallState RebuildStateFromDisk()
+    {
+        var state = new InstallState();
+        if (!Directory.Exists(AppsRoot)) return state;
+        foreach (var dir in Directory.EnumerateDirectories(AppsRoot))
+        {
+            var id = Path.GetFileName(dir);
+            if (id.StartsWith('.') || id.EndsWith(".previous", StringComparison.OrdinalIgnoreCase)) continue;
+            var exe = Directory.EnumerateFiles(dir, "*.exe", SearchOption.AllDirectories)
+                .OrderBy(x => x.Count(c => c == Path.DirectorySeparatorChar))
+                .FirstOrDefault(x => Path.GetFileNameWithoutExtension(x).Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (exe is null) continue;
+            state.Apps[id] = new InstalledApp(id, UnknownVersion, exe, string.Empty, string.Empty, Directory.GetLastWriteTimeUtc(dir));
+        }
+        return state;
+    }
+
+    private static void ThrowIfRunning(string id, string name, string appDir)
+    {
+        var root = Path.GetFullPath(appDir) + Path.DirectorySeparatorChar;
+        foreach (var process in Process.GetProcessesByName(id))
+        {
+            using (process)
+            {
+                string? path;
+                try { path = process.MainModule?.FileName; }
+                catch { continue; }
+                if (path is not null && Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException($"{name} is open. Close it and try again.");
+            }
+        }
+    }
+
+    private static string ReadWithRetry(string path)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try { return File.ReadAllText(path); }
+            catch (IOException) when (attempt < 5) { Thread.Sleep(100 * attempt); }
+        }
+    }
+
+    private static void TryDelete(string directory)
+    {
+        try { Directory.Delete(directory, true); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     private void SaveState(InstallState state)
