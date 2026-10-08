@@ -16,6 +16,7 @@ struct Manager {
     releases: Vec<Option<Release>>,
     errors: Vec<String>,
     state: InstallState,
+    state_error: Option<String>,
     stable: bool,
     busy: bool,
     status: String,
@@ -29,12 +30,21 @@ impl Manager {
     fn new(apps: Vec<AppManifest>) -> Self {
         let (tx, rx) = mpsc::channel();
         let count = apps.len();
-        let state = backend::load_state().unwrap_or_default();
+        let (state, state_error) = match backend::load_state() {
+            Ok(state) => (state, None),
+            Err(error) => (
+                InstallState::default(),
+                Some(format!(
+                    "Could not recover installation settings: {error:#}"
+                )),
+            ),
+        };
         let mut manager = Self {
             apps,
             releases: vec![None; count],
             errors: vec![String::new(); count],
             state,
+            state_error,
             stable: true,
             busy: false,
             status: "Ready to check releases.".into(),
@@ -43,11 +53,11 @@ impl Manager {
             tx,
             rx,
         };
-        manager.refresh();
+        manager.refresh(false);
         manager
     }
 
-    fn refresh(&mut self) {
+    fn refresh(&mut self, force_refresh: bool) {
         if self.busy {
             return;
         }
@@ -55,11 +65,15 @@ impl Manager {
         self.status = "Checking upstream releases…".into();
         let apps = self.apps.clone();
         let stable = self.stable;
+        let force_refresh = force_refresh;
         let tx = self.tx.clone();
         std::thread::spawn(move || {
             let results = apps
                 .iter()
-                .map(|app| backend::resolve(app, stable).map_err(|e| e.to_string()))
+                .map(|app| {
+                    backend::resolve_with_refresh(app, stable, force_refresh)
+                        .map_err(|e| e.to_string())
+                })
                 .collect();
             let _ = tx.send(Event::Releases(results));
         });
@@ -125,10 +139,12 @@ impl Manager {
                             }
                         }
                     }
-                    self.status = format!(
-                        "{available} of {} macOS releases available.",
-                        self.apps.len()
-                    );
+                    self.status = self.state_error.clone().unwrap_or_else(|| {
+                        format!(
+                            "{available} of {} macOS releases available.",
+                            self.apps.len()
+                        )
+                    });
                     self.busy = false;
                     self.progress = 0.0;
                 }
@@ -137,8 +153,18 @@ impl Manager {
                     self.status = status;
                 }
                 Event::Done(status) => {
-                    self.state = backend::load_state().unwrap_or_default();
-                    self.status = status;
+                    match backend::load_state() {
+                        Ok(state) => {
+                            self.state = state;
+                            self.state_error = None;
+                            self.status = status;
+                        }
+                        Err(error) => {
+                            self.state_error =
+                                Some(format!("Could not reload installation settings: {error:#}"));
+                            self.status = self.state_error.clone().unwrap();
+                        }
+                    }
                     self.busy = false;
                     self.progress = 0.0;
                 }
@@ -172,14 +198,14 @@ impl eframe::App for Manager {
                 ui.label("Release channel:");
                 if ui.selectable_label(self.stable, "Stable").clicked() && !self.stable && !self.busy {
                     self.stable = true;
-                    self.refresh();
+                    self.refresh(false);
                 }
                 if ui.selectable_label(!self.stable, "Latest").clicked() && self.stable && !self.busy {
                     self.stable = false;
-                    self.refresh();
+                    self.refresh(false);
                 }
                 ui.add_space(12.0);
-                if ui.add_enabled(!self.busy, egui::Button::new("Check releases")).clicked() { self.refresh(); }
+                if ui.add_enabled(!self.busy, egui::Button::new("Check releases")).clicked() { self.refresh(true); }
             });
             ui.separator();
             ui.label(&self.status);
@@ -214,8 +240,16 @@ impl eframe::App for Manager {
                                     remove_clicked = ui.add_enabled(!self.busy, egui::Button::new("Remove")).clicked();
                                     open_clicked = ui.add_enabled(!self.busy, egui::Button::new("Open")).clicked();
                                 }
-                                let action = if installed_version.is_none() { "Install" }
-                                    else if installed_version != available { "Update" } else { "Reinstall" };
+                                let action = match (&installed_version, &available) {
+                                    (None, _) => "Install",
+                                    (Some(installed), Some(available)) => match backend::compare_versions(available, installed) {
+                                        Some(std::cmp::Ordering::Greater) => "Update",
+                                        Some(std::cmp::Ordering::Less) => "Downgrade",
+                                        Some(std::cmp::Ordering::Equal) => "Reinstall",
+                                        None => "Replace",
+                                    },
+                                    _ => "Install",
+                                };
                                 install_clicked = ui.add_enabled(!self.busy && available.is_some(), egui::Button::new(action)).clicked();
                             });
                         });

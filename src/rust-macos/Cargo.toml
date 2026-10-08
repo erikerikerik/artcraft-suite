@@ -1,8 +1,8 @@
 [package]
 name = "artcraft-suite-macos"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
-description = "Rust macOS Apple Silicon installer for the ArtCraft creative apps"
+description = "Universal Rust macOS installer for the ArtCraft creative apps"
 license = "Apache-2.0"
 
 [dependencies]
@@ -11,6 +11,7 @@ eframe = { version = "0.36", default-features = false, features = ["default_font
 hex = "0.4"
 plist = "1"
 regex = "1"
+semver = "1"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

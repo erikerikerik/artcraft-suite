@@ -25,19 +25,24 @@ the result contains both architectures. Open
 `artifacts/macos-universal/ArtCraftSuite-macos-universal.dmg`, drag the app to
 Applications, and launch it from Finder. It installs ArtCraft apps in
 `~/Applications/ArtCraft Suite` without administrator access. The manager picks
-the matching upstream release asset for the running architecture and verifies
-the installed app includes a compatible executable slice.
+the matching upstream release asset for the running architecture, verifies
+Apple signature integrity and Gatekeeper acceptance, and checks that the signing
+team is Learning Machines LLC (Team ID `DJ6XS33FX8`). It also verifies that the
+installed app includes a compatible executable slice. Updates and removal are
+blocked while the app is running.
 
 ## Install behavior
 
 1. Resolve the selected stable or latest release from the manifest repository.
 2. Require a SHA-256 digest from the release asset or `SHA256SUMS.txt`.
 3. Download and verify the complete DMG before mounting it read-only.
-4. Discover exactly one `.app` bundle and verify its identifier, executable, and
-   architecture compatibility.
+4. Discover exactly one `.app` bundle, remove disallowed FinderInfo attributes,
+   verify its Developer ID signature, require Team ID `DJ6XS33FX8`, assess it with
+   Gatekeeper, and verify its architecture compatibility.
 5. Copy with `ditto` into a private staging directory, detach the image, and
    replace the managed app bundle with rollback if the swap or state write fails.
-6. Launch with `open`; removal affects only the manager-owned app bundle. User
+6. Refuse updates or removal while the app executable is open.
+7. Launch with `open`; removal affects only the manager-owned app bundle. User
    documents and app settings are outside that directory.
 
 An existing app at the managed path without manager state is never overwritten.

@@ -11,8 +11,8 @@ jobs:
   windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 8.0.x
       - name: Publish
@@ -25,7 +25,7 @@ jobs:
         run: |
           Compress-Archive -Path artifacts/windows-x64/* -DestinationPath artifacts/ArtCraftSuite-windows-x64.zip
           (Get-FileHash artifacts/ArtCraftSuite-windows-x64.zip -Algorithm SHA256).Hash.ToLower() + '  ArtCraftSuite-windows-x64.zip' | Set-Content artifacts/ArtCraftSuite-windows-x64.zip.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: windows-release
           path: |
@@ -35,8 +35,8 @@ jobs:
   macos-universal:
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # stable action commit
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
       - name: Test and build Rust manager
@@ -46,7 +46,7 @@ jobs:
           cargo build --release --locked --manifest-path src/rust-macos/Cargo.toml --target x86_64-apple-darwin
       - name: Package Universal DMG
         run: bash scripts/package-rust-macos.sh src/rust-macos/target/aarch64-apple-darwin/release/artcraft-suite-macos src/rust-macos/target/x86_64-apple-darwin/release/artcraft-suite-macos artifacts/macos-universal "${GITHUB_REF_NAME#v}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: macos-universal-release
           path: |
@@ -57,11 +57,11 @@ jobs:
     needs: [windows, macos-universal]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           generate_release_notes: true
           prerelease: ${{ contains(github.ref_name, '-') }}
