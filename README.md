@@ -1,8 +1,8 @@
 # ArtCraft Suite Manager
 
-A lightweight, independent installer and update manager for the seven open-source
-[ArtCraft crafting apps](https://github.com/storytold). Windows x64 and a separate
-Rust universal macOS manager for Intel and Apple Silicon are available.
+A lightweight, independent installer and update manager for the open-source
+[ArtCraft crafting apps](https://github.com/storytold): seven apps on Windows x64,
+and twelve in the separate Rust universal macOS manager for Intel and Apple Silicon.
 
 > **Independent open-source project:** this repository is not maintained, sponsored, or endorsed
 > by storytold or the ArtCraft team. It downloads unmodified packages from their
@@ -59,9 +59,12 @@ the runtime hash requirement.
 
 ## macOS Intel and Apple Silicon
 
-The macOS manager is a windowed Rust application in `src/rust-macos`. It installs
-the official universal DMGs into `~/Applications/ArtCraft Suite`, verifies SHA-256
-before mounting, and supports updates, opening, and removal. It requires no
+The macOS manager is a windowed Rust application in `src/rust-macos`. It shows the
+apps in one App Store–style list (Updates Available, Installed, Not Installed) with
+each app's official icon, Get/Update/Open buttons, Update All, and a Stable/Latest
+switch, and follows the system light or dark appearance. It installs the official
+universal DMGs into `~/Applications/ArtCraft Suite`, verifies SHA-256 before
+mounting, and supports updates, opening, showing in Finder, and removal. It requires no
 administrator password. See [`docs/MACOS.md`](docs/MACOS.md) for build and
 distribution instructions. The older Avalonia macOS scaffold remains in the
 repository but is not the installer.

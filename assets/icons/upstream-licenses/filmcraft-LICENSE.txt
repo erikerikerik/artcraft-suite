@@ -1,0 +1,13 @@
+FilmCraft app icon (filmcraft.svg and every file derived from it in this directory:
+filmcraft-small.svg, filmcraft-1024.png, filmcraft-macos-512.png, filmcraft.icns, filmcraft.ico,
+hicolor/, and apps/filmcraft-web/web/favicon.png).
+
+Original artwork made for this project by the FilmCraft owner (Brandon Thomas) in ArtCraft, then
+vectorised. No third-party material. Licensed like the rest of FilmCraft, under either of
+
+  * Apache License, Version 2.0 (https://www.apache.org/licenses/LICENSE-2.0)
+  * MIT license (https://opensource.org/licenses/MIT)
+
+at your option.
+
+Regenerate the derived files with packaging/icons.sh.

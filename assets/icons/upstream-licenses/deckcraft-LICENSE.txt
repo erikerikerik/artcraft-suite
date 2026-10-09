@@ -1,0 +1,57 @@
+Source: storytold/deckcraft @ d0e57d7e25f9852179cc66be12dd6188f1c05535
+The app icon is listed in ATTRIBUTION.md as "MIT OR Apache-2.0". The repository NOTICE and
+LICENSE-MIT are reproduced verbatim below; LICENSE-APACHE is the standard Apache License 2.0 text.
+
+===== NOTICE =====
+DeckCraft
+Copyright (c) 2026 ArtCraft Team and the DeckCraft contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option
+(LICENSE-MIT, LICENSE-APACHE).
+
+The ArtCraft name, wordmark and logos in docs/brand/ are trademarks of the ArtCraft Team. They are
+not open source and are not covered by the license above; their terms are in
+docs/brand/LICENSE-brand.txt.
+
+Third-party material
+
+This product bundles third-party material under its own licenses, listed below. The per-file
+list (author, source, license) is in ATTRIBUTION.md.
+
+- Ubuntu Light (via the epaint_default_fonts crate) — Ubuntu Font Licence 1.0.
+- Hack, Noto Emoji and the egui emoji icon font (via epaint_default_fonts) — MIT, Bitstream Vera,
+  OFL-1.1.
+- Builds made with craft-fonts (CRAFT_FONTS_DIR; all official releases) embed the fonts listed in
+  ATTRIBUTION.md (Inter, Carlito, Caladea, Liberation, Montserrat, Lato, Open Sans, Roboto,
+  Merriweather, Playfair Display, Poppins, Nunito Sans, BIZ UD, Shippori Mincho, Noto Sans
+  Arabic) under the SIL Open Font License 1.1; their licence texts ship with release packages.
+
+Code dependencies
+
+- symphonia (audio decoding for MP3, AAC, ALAC, FLAC, Vorbis, WAV, AIFF, CAF) is used unmodified
+  under the Mozilla Public License 2.0; its source is available at
+  https://github.com/pdeljanov/Symphonia.
+- The H.264, HEVC, VP9, AV1, Opus, MP4, Matroska and Ogg crates under crates/ are ported from
+  FilmCraft (same owner, MIT OR Apache-2.0).
+
+===== LICENSE-MIT =====
+MIT License
+
+Copyright (c) 2026 ArtCraft Team and the DeckCraft contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

@@ -1,6 +1,6 @@
 [package]
 name = "artcraft-suite-macos"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2024"
 description = "Universal Rust macOS installer for the ArtCraft creative apps"
 license = "Apache-2.0"
@@ -9,6 +9,7 @@ license = "Apache-2.0"
 anyhow = "1"
 eframe = { version = "0.36", default-features = false, features = ["default_fonts", "glow"] }
 hex = "0.4"
+image = { version = "0.25", default-features = false, features = ["png"] }
 plist = "1"
 regex = "1"
 semver = "1"

@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "apps": [
+    {
+      "id": "photocraft",
+      "name": "PhotoCraft",
+      "description": "Image editing and compositing",
+      "repository": "storytold/photocraft",
+      "accent": "#6D5DFB",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "vectorcraft",
+      "name": "VectorCraft",
+      "description": "Vector illustration and design",
+      "repository": "storytold/vectorcraft",
+      "accent": "#E86F45",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "designcraft",
+      "name": "DesignCraft",
+      "description": "Page layout and publishing",
+      "repository": "storytold/designcraft",
+      "accent": "#D9468D",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "filmcraft",
+      "name": "FilmCraft",
+      "description": "Video editing, color and sound",
+      "repository": "storytold/filmcraft",
+      "accent": "#7B4FE9",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "effectcraft",
+      "name": "EffectCraft",
+      "description": "Motion graphics and visual effects",
+      "repository": "storytold/effectcraft",
+      "accent": "#3859D9",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "lightcraft",
+      "name": "LightCraft",
+      "description": "Photography and raw development",
+      "repository": "storytold/lightcraft",
+      "accent": "#2FA7A0",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "printcraft",
+      "name": "PrintCraft",
+      "description": "PDF viewing and editing",
+      "repository": "storytold/pdfcraft",
+      "accent": "#D24B4B",
+      "packageId": "pdfcraft",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "wordcraft",
+      "name": "WordCraft",
+      "description": "Word processing and documents",
+      "repository": "storytold/wordcraft",
+      "accent": "#5468C4",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "gridcraft",
+      "name": "GridCraft",
+      "description": "Spreadsheets and data",
+      "repository": "storytold/gridcraft",
+      "accent": "#3E9963",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "deckcraft",
+      "name": "DeckCraft",
+      "description": "Presentations and slide decks",
+      "repository": "storytold/deckcraft",
+      "accent": "#C46E37",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "soundcraft",
+      "name": "SoundCraft",
+      "description": "Audio recording and mixing",
+      "repository": "storytold/soundcraft",
+      "accent": "#4D9AA3",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    },
+    {
+      "id": "cadcraft",
+      "name": "CADCraft",
+      "description": "Technical drafting and DXF drawings",
+      "repository": "storytold/cadcraft",
+      "accent": "#2E8FB0",
+      "assetPatterns": {"macos-arm64": "^{id}-{version}-macos-universal\\.dmg$", "macos-x64": "^{id}-{version}-macos-universal\\.dmg$"}
+    }
+  ]
+}

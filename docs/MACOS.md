@@ -2,8 +2,29 @@
 
 The Finder-launchable manager is written in Rust with `eframe`. The installer is
 one universal app containing both Intel x86_64 and Apple Silicon arm64 code. It
-uses the shared app manifest and installs official universal DMGs from the seven
-upstream GitHub releases.
+installs official universal DMGs from twelve upstream GitHub releases, listed in its
+own app list, [`src/rust-macos/apps-macos.json`](../src/rust-macos/apps-macos.json).
+The shared `manifest/apps.json` stays at the seven Windows apps.
+
+An app is added to the Mac list only when its upstream release publishes a Developer
+ID–signed universal DMG with a SHA-256 digest. `packageId` covers an app whose packages
+use a different name: PrintCraft is published as `pdfcraft-<version>-macos-universal.dmg`
+with bundle ID `ai.storyteller.pdfcraft`, and older `printcraft-*` packages still match.
+
+## Using the manager
+
+- Apps appear in one list, grouped as **Updates Available**, **Installed** and
+  **Not Installed**, with each app's official icon (see `assets/icons/README.md`).
+- **Get** installs, **Update** updates, **Open** launches. **Update All** queues every
+  update. Requests made while another app is installing wait their turn; click a
+  waiting app's ring to cancel it.
+- The **⋯** button on an installed app offers Open, Show in Finder, Reinstall or
+  Downgrade (when the selected channel offers the same or an older version), and
+  Remove. Removal asks for confirmation first.
+- **Stable** shows tested releases; **Latest** includes pre-releases. The refresh
+  button (or ⌘R) checks GitHub again. Both are unavailable while apps are installing.
+- The window follows the system light or dark appearance and uses the macOS system
+  font when it can be read.
 
 ## Build on macOS
 

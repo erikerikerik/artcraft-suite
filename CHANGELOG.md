@@ -1,5 +1,45 @@
 # Changelog
 
+## macOS 0.2.0 — 2026-10-08
+
+Redesigned universal macOS manager.
+
+### Added
+
+- An App Store–style single list with the official app icons, grouped into
+  **Updates Available**, **Installed** and **Not Installed**. Each app has a
+  Get, Update or Open button, and **Update All** updates everything at once.
+- Five more apps with signed universal Mac releases: WordCraft, GridCraft,
+  DeckCraft, SoundCraft and CADCraft. Their icons and licence texts are in
+  `assets/icons/`.
+- A queue: apps requested while another is installing wait their turn, show a
+  progress ring, and can be cancelled before they start. Downloads show megabytes
+  done, then each verification step.
+- A **⋯** menu with Open, Show in Finder, Reinstall or Downgrade, and Remove, and a
+  **Show Apps Folder** link.
+- Follows the system light or dark appearance and uses the macOS system font.
+- ⌘R checks for updates. All apps are checked at the same time, so the list fills
+  in faster.
+
+### Fixed
+
+- PrintCraft could never update past 0.2.1 on Mac: upstream now publishes it as
+  `pdfcraft-*.dmg` with bundle ID `ai.storyteller.pdfcraft`, which the manager
+  rejected. Both names are now accepted.
+- `src/rust-macos/Cargo.lock` was damaged (it began with a stray "truncated output"
+  line and was missing about 170 packages), so `cargo build --locked` and the CI
+  and release workflows could not build the Mac app. It has been regenerated.
+- An app deleted in Finder now shows as not installed, so it can be installed again,
+  instead of offering an Open button that failed.
+- If GitHub can't be reached, a banner explains why and offers Try Again, instead
+  of every app showing a raw error.
+
+### Changed
+
+- The Mac app list is now `src/rust-macos/apps-macos.json`; the shared
+  `manifest/apps.json` used by Windows is unchanged.
+- The User-Agent now reports the manager's real version.
+
 ## 0.1.1 — 2026-10-07
 
 Hotfix release.

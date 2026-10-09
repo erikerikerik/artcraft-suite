@@ -13,7 +13,9 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-const MANIFEST: &str = include_str!("../../../manifest/apps.json");
+// The Mac edition ships its own app list (12 apps with signed universal DMGs). The shared
+// manifest/apps.json stays at seven apps for the Windows edition and its validator.
+const MANIFEST: &str = include_str!("../apps-macos.json");
 const EXPECTED_TEAM_IDENTIFIER: &str = "DJ6XS33FX8";
 const RELEASE_CACHE_TTL: Duration = Duration::from_secs(300);
 
@@ -35,7 +37,44 @@ pub struct AppManifest {
     pub description: String,
     pub repository: String,
     pub accent: String,
+    /// Upstream package name when it differs from `id` (PrintCraft ships as `pdfcraft-*.dmg`
+    /// with bundle ID `ai.storyteller.pdfcraft`). Older `id`-named packages are still accepted.
+    #[serde(default)]
+    pub package_id: Option<String>,
     pub asset_patterns: BTreeMap<String, String>,
+}
+
+impl AppManifest {
+    /// Every name this app's packages and bundle identifiers may use.
+    pub fn package_names(&self) -> Vec<&str> {
+        let mut names = vec![self.id.as_str()];
+        if let Some(package) = self.package_id.as_deref()
+            && package != self.id
+        {
+            names.push(package);
+        }
+        names
+    }
+
+    fn bundle_id_matches(&self, bundle_id: &str) -> bool {
+        let bundle_id = bundle_id.to_ascii_lowercase();
+        self.package_names()
+            .iter()
+            .any(|name| bundle_id == format!("ai.storyteller.{name}"))
+    }
+
+    fn asset_regex(&self, template: &str, version: &str) -> Result<Regex> {
+        let names = self
+            .package_names()
+            .iter()
+            .map(|name| regex::escape(name))
+            .collect::<Vec<_>>()
+            .join("|");
+        let pattern = template
+            .replace("{id}", &format!("(?:{names})"))
+            .replace("{version}", &regex::escape(version));
+        Ok(Regex::new(&format!("(?i:{pattern})"))?)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -89,6 +128,10 @@ pub fn manifest() -> Result<SuiteManifest> {
     ensure!(manifest.schema_version == 1, "Unsupported manifest schema");
     for app in &manifest.apps {
         ensure!(safe_id(&app.id), "Unsafe app ID in manifest");
+        ensure!(
+            app.package_id.as_deref().is_none_or(safe_id),
+            "Unsafe package ID in manifest"
+        );
         let expected_repo = if app.id == "printcraft" {
             "storytold/pdfcraft".to_string()
         } else {
@@ -108,7 +151,11 @@ fn safe_id(id: &str) -> bool {
 
 fn client() -> Result<Client> {
     Ok(Client::builder()
-        .user_agent("ArtCraft-Suite-Rust/0.1 (+https://github.com/erikerikerik/artcraft-suite)")
+        .user_agent(concat!(
+            "ArtCraft-Suite-Mac/",
+            env!("CARGO_PKG_VERSION"),
+            " (+https://github.com/erikerikerik/artcraft-suite)"
+        ))
         .timeout(std::time::Duration::from_secs(600))
         .build()?)
 }
@@ -134,10 +181,7 @@ pub fn resolve_with_refresh(
         .filter(|r| !r.draft && (!stable || !r.prerelease))
     {
         let version = release.tag_name.trim_start_matches(['v', 'V']).to_string();
-        let pattern = template
-            .replace("{id}", &regex::escape(&app.id))
-            .replace("{version}", &regex::escape(&version));
-        let pattern = Regex::new(&format!("(?i:{pattern})"))?;
+        let pattern = app.asset_regex(template, &version)?;
         if let Some(asset) = release.assets.iter().find(|a| pattern.is_match(&a.name)) {
             let expected_prefix =
                 format!("https://github.com/{}/releases/download/", app.repository);
@@ -169,16 +213,14 @@ pub fn resolve_with_refresh(
 
 fn releases_for(http: &Client, repository: &str, force_refresh: bool) -> Result<Vec<ApiRelease>> {
     let cache = RELEASE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
-    if !force_refresh {
-        if let Some((fetched, releases)) = cache
+    if !force_refresh
+        && let Some((fetched, releases)) = cache
             .lock()
             .map_err(|_| anyhow::anyhow!("Release cache is unavailable"))?
             .get(repository)
-        {
-            if fetched.elapsed() < RELEASE_CACHE_TTL {
-                return Ok(releases.clone());
-            }
-        }
+        && fetched.elapsed() < RELEASE_CACHE_TTL
+    {
+        return Ok(releases.clone());
     }
     let url = format!("https://api.github.com/repos/{repository}/releases?per_page=20");
     let response = checked_response(http.get(url).send()?, "GitHub releases API")?;
@@ -316,7 +358,7 @@ fn rebuild_state() -> Result<InstallState> {
             Ok(info) => info,
             Err(_) => continue,
         };
-        if !info.id.to_ascii_lowercase().contains(&app.id) {
+        if !app.bundle_id_matches(&info.id) {
             continue;
         }
         state.apps.insert(
@@ -377,13 +419,13 @@ fn install_verified_archive(
         "An app already exists at {} but is not managed by ArtCraft Suite",
         target.display()
     );
-    progress(1.0, "Mounting verified disk image…");
+    progress(1.0, "Opening disk image…");
     let mount = workspace.join("mount");
     fs::create_dir(&mount)?;
     let output = Command::new("hdiutil")
         .args(["attach", "-nobrowse", "-readonly", "-quiet", "-mountpoint"])
         .arg(&mount)
-        .arg(&archive)
+        .arg(archive)
         .output()?;
     ensure!(
         output.status.success(),
@@ -393,14 +435,16 @@ fn install_verified_archive(
     let guard = MountGuard(mount.clone());
     let source = discover_bundle(&mount)?;
     let staging = workspace.join("staged.app");
-    progress(1.0, "Copying app bundle…");
+    progress(1.0, "Copying app…");
     let output = Command::new("ditto").arg(&source).arg(&staging).output()?;
     ensure!(
         output.status.success(),
         "Could not copy app bundle: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+    progress(1.0, "Checking signature…");
     let bundle_id = validate_bundle(&staging, app)?;
+    progress(1.0, "Finishing…");
     guard.detach()?;
 
     // Keep the previous bundle until the new bundle and state file are committed.
@@ -450,13 +494,17 @@ fn download(release: &Release, path: &Path, progress: &mut impl FnMut(f32, &str)
         hash.update(&buf[..n]);
         done += n as u64;
         if total > 0 {
-            progress(
-                (done as f32 / total as f32).clamp(0.0, 1.0),
-                "Downloading and verifying…",
-            );
+            progress((done as f32 / total as f32).clamp(0.0, 1.0), "Downloading…");
         }
     }
     file.flush()?;
+    ensure!(
+        release.size == 0 || done == release.size,
+        "Downloaded size mismatch for {} (expected {} bytes, received {} bytes)",
+        release.asset_name,
+        release.size,
+        done
+    );
     let actual = hex::encode(hash.finalize());
     ensure!(
         actual == release.sha256,
@@ -510,7 +558,7 @@ fn validate_bundle(bundle: &Path, app: &AppManifest) -> Result<String> {
     );
     let info: BundleInfo = plist::from_file(bundle.join("Contents/Info.plist"))?;
     ensure!(
-        info.id.to_ascii_lowercase().contains(&app.id),
+        app.bundle_id_matches(&info.id),
         "Unexpected bundle identifier: {}",
         info.id
     );
@@ -661,6 +709,24 @@ pub fn launch(app: &AppManifest) -> Result<()> {
     Ok(())
 }
 
+/// Shows the installed app selected in a Finder window.
+pub fn reveal(app: &AppManifest) -> Result<()> {
+    let path = bundle_path(app)?;
+    ensure!(path.is_dir(), "App bundle is missing");
+    let status = Command::new("open").arg("-R").arg(&path).status()?;
+    ensure!(status.success(), "Finder could not show the app");
+    Ok(())
+}
+
+/// Opens ~/Applications/ArtCraft Suite in Finder, creating it first if needed.
+pub fn open_apps_folder() -> Result<()> {
+    let root = apps_root()?;
+    fs::create_dir_all(&root)?;
+    let status = Command::new("open").arg(&root).status()?;
+    ensure!(status.success(), "Finder could not open the apps folder");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -668,10 +734,61 @@ mod tests {
     #[test]
     fn manifest_is_safe_and_complete() {
         let data = manifest().unwrap();
-        assert_eq!(data.apps.len(), 7);
+        assert_eq!(data.apps.len(), 12);
+        let mut ids: Vec<_> = data.apps.iter().map(|app| app.id.as_str()).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), 12, "app IDs must be unique");
         for app in data.apps {
             assert!(app.asset_patterns.contains_key("macos-arm64"));
             assert!(app.asset_patterns.contains_key("macos-x64"));
+        }
+    }
+
+    fn app(id: &str) -> AppManifest {
+        manifest()
+            .unwrap()
+            .apps
+            .into_iter()
+            .find(|app| app.id == id)
+            .unwrap()
+    }
+
+    #[test]
+    fn printcraft_matches_renamed_pdfcraft_packages() {
+        let printcraft = app("printcraft");
+        let template = &printcraft.asset_patterns["macos-arm64"];
+        let current = printcraft.asset_regex(template, "0.4.0").unwrap();
+        assert!(current.is_match("pdfcraft-0.4.0-macos-universal.dmg"));
+        assert!(current.is_match("printcraft-0.4.0-macos-universal.dmg"));
+        assert!(!current.is_match("pdfcraft-0.4.0-windows-x64-portable.zip"));
+        assert!(!current.is_match("xpdfcraft-0.4.0-macos-universal.dmg"));
+        assert!(!current.is_match("pdfcraft-0.4.0-macos-universal.dmg.sig"));
+        assert!(printcraft.bundle_id_matches("ai.storyteller.pdfcraft"));
+        assert!(printcraft.bundle_id_matches("ai.storyteller.printcraft"));
+        assert!(!printcraft.bundle_id_matches("ai.storyteller.wordcraft"));
+        assert!(!printcraft.bundle_id_matches("ai.fake.pdfcraft"));
+        assert!(!printcraft.bundle_id_matches("ai.storyteller.pdfcraft.helper"));
+    }
+
+    #[test]
+    fn new_apps_match_their_own_packages_only() {
+        for id in [
+            "wordcraft",
+            "gridcraft",
+            "deckcraft",
+            "soundcraft",
+            "cadcraft",
+        ] {
+            let item = app(id);
+            assert_eq!(item.repository, format!("storytold/{id}"));
+            let pattern = item
+                .asset_regex(&item.asset_patterns["macos-x64"], "0.3.0")
+                .unwrap();
+            assert!(pattern.is_match(&format!("{id}-0.3.0-macos-universal.dmg")));
+            assert!(!pattern.is_match(&format!("{id}-0.3.1-macos-universal.dmg")));
+            assert!(!pattern.is_match("photocraft-0.3.0-macos-universal.dmg"));
+            assert!(item.bundle_id_matches(&format!("ai.storyteller.{id}")));
         }
     }
 
