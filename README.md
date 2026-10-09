@@ -38,9 +38,14 @@ extract it, and run `ArtCraftSuite.exe`. Windows may show a SmartScreen warning
 for unsigned community builds; review the release checksum and source before
 continuing.
 
-The manager itself does not need administrator rights. Each creative application
-keeps its own settings and documents outside the manager-owned installation
-folder, so updating or removing an app does not intentionally remove user work.
+The manager itself does not need administrator rights. Apps installed by the
+manager keep their settings in your Windows user profile (`%APPDATA%` and
+`%LOCALAPPDATA%`), not in the install folder, so updates never reset them. ArtCraft's ZIP builds include a
+`portable.txt` file that would keep settings next to the program; the manager
+removes it on new installs. Settings that an app already keeps beside the program
+(a `PhotoCraftData` or `PdfCraftData` folder) are carried into each update, and
+kept in `%LOCALAPPDATA%\ArtCraftSuite\saved-settings` when you remove the app, so
+a reinstall brings them back. Your documents are never in the install folder.
 
 If anonymous GitHub rate limits are a problem, advanced users may set
 `ARTCRAFT_GITHUB_TOKEN` before launching the manager. The token is sent only to

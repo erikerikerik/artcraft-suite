@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.4 — 2026-10-09
+
+### Fixed
+
+- Updating PhotoCraft or PrintCraft (PdfCraft) reset its settings, presets and
+  crash-recovery files. ArtCraft's Windows ZIPs include `portable.txt`, which makes
+  these apps keep that data in a folder beside the program, and each update
+  replaced that folder. New installs now drop the marker so the apps use the
+  per-user settings folder. Apps that already have settings beside the program
+  keep them: they are copied into every update.
+- Removing an app no longer deletes settings kept beside the program. They are
+  moved to `%LOCALAPPDATA%\ArtCraftSuite\saved-settings` and restored if you
+  install the app again.
+- Settings left behind in the previous version's folder by an earlier update are
+  moved to the same place instead of being deleted on the next update or removal.
+
 ## 0.3.3 — 2026-10-08
 
 ### Fixed

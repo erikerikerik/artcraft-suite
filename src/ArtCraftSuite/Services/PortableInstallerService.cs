@@ -15,6 +15,7 @@ public sealed class PortableInstallerService
     private string StatePath => Path.Combine(_root, "state.json");
     private string AppsRoot => Path.Combine(_root, "apps");
     private string TransactionsRoot => Path.Combine(_root, "transactions");
+    private string SavedSettingsRoot => Path.Combine(_root, "saved-settings");
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, PropertyNameCaseInsensitive = true };
 
     public PortableInstallerService(string? root = null)
@@ -90,7 +91,14 @@ public sealed class PortableInstallerService
 
             ct.ThrowIfCancellationRequested();
             ThrowIfRunning(app.Name, target);
-            if (Directory.Exists(backup)) Directory.Delete(backup, true);
+            CarryOverPortableSettings(app, target, Path.GetDirectoryName(executable)!);
+            if (Directory.Exists(backup))
+            {
+                // The version before last may hold settings an earlier update left behind; keep them.
+                var olderData = FindPortableData(backup, app.EffectivePackageId, app.Id);
+                if (olderData is not null) SaveSettingsAside(olderData, app.Id);
+                Directory.Delete(backup, true);
+            }
             var journal = new InstallJournal(app.Id, target, staging, backup, TransactionPhase.Prepared, previousInstalled, installed);
             SaveJournal(journalPath, journal);
 
@@ -137,7 +145,7 @@ public sealed class PortableInstallerService
         finally { if (Directory.Exists(staging)) TryDelete(staging); }
     }
 
-    public string? Uninstall(string id, string name)
+    public string? Uninstall(string id, string name, string? packageId = null)
     {
         var state = LoadState();
         var appDir = Path.GetFullPath(Path.Combine(AppsRoot, id));
@@ -171,18 +179,124 @@ public sealed class PortableInstallerService
         }
 
         var previous = Path.Combine(AppsRoot, $".{id}-previous");
-        if (removing is null)
+        string? kept = null;
+        var settings = removing is null ? null : FindPortableData(removing, packageId ?? id, id);
+        // A pre-0.3.4 update may have left the only surviving settings in the retained
+        // previous-version folder. Preserve that copy before uninstall cleanup removes it.
+        settings ??= FindPortableData(previous, packageId ?? id, id);
+        if (settings is not null)
         {
-            if (Directory.Exists(previous)) TryDelete(previous);
-            return null;
+            try { SaveSettingsAside(settings, id); kept = $"{name} was removed. Its settings were kept and come back if you install it again."; }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return $"{name} was removed, but its settings could not be kept aside. They remain at {settings} until you delete that folder.";
+            }
         }
-        try { Directory.Delete(removing, true); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        if (removing is not null)
         {
-            return $"{name} was removed, but old files remain at {removing}. Close the app and delete that folder later.";
+            try { Directory.Delete(removing, true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return $"{name} was removed, but old files remain at {removing}. Close the app and delete that folder later.";
+            }
         }
         if (Directory.Exists(previous)) TryDelete(previous);
-        return null;
+        return kept;
+    }
+
+    // ArtCraft's Windows ZIPs ship with portable.txt. With that marker beside the program, PhotoCraft
+    // and PdfCraft keep their settings, presets and recovery files in a "<App>Data" folder next to
+    // the executable instead of %APPDATA%. Updates replace the program folder, so without care every
+    // update or reinstall would start the app with factory settings.
+    //
+    // - Existing portable settings are copied into the new version, and the marker is kept.
+    // - With no portable settings to carry over, the marker is removed, so the app uses its per-user
+    //   folder (%APPDATA% / %LOCALAPPDATA%), which updates never touch.
+    // - Settings of a removed app are moved to saved-settings and restored on reinstall.
+    private void CarryOverPortableSettings(AppManifest app, string target, string newExecutableDirectory)
+    {
+        var current = FindPortableData(target, app.EffectivePackageId, app.Id);
+        var saved = Directory.Exists(target) ? null : FindSavedSettings(app.Id, app.EffectivePackageId);
+        PreparePortableSettings(newExecutableDirectory, current ?? saved);
+    }
+
+    internal static void PreparePortableSettings(string executableDirectory, string? existingData)
+    {
+        if (existingData is null)
+        {
+            RemovePortableMarkers(executableDirectory);
+            return;
+        }
+        var destination = Path.Combine(executableDirectory, Path.GetFileName(existingData));
+        if (Directory.Exists(destination)) Directory.Delete(destination, true);
+        CopyDirectory(existingData, destination);
+        if (!HasPortableMarker(executableDirectory))
+            File.WriteAllText(Path.Combine(executableDirectory, "portable.txt"), "Kept by ArtCraft Suite so this app keeps its existing settings.\r\n");
+    }
+
+    internal static void RemovePortableMarkers(string executableDirectory)
+    {
+        foreach (var file in Directory.EnumerateFiles(executableDirectory))
+            if (IsPortableMarker(Path.GetFileName(file))) File.Delete(file);
+    }
+
+    private static bool HasPortableMarker(string executableDirectory) =>
+        Directory.EnumerateFiles(executableDirectory).Any(file => IsPortableMarker(Path.GetFileName(file)));
+
+    private static bool IsPortableMarker(string fileName) =>
+        fileName.Equals("portable.txt", StringComparison.OrdinalIgnoreCase)
+        || fileName.EndsWith(".portable", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The non-empty "&lt;App&gt;Data" folder beside the app's executable in an install folder, if any.</summary>
+    internal static string? FindPortableData(string installDirectory, params string[] stems)
+    {
+        if (!Directory.Exists(installDirectory)) return null;
+        var executable = FindExecutable(installDirectory, stems);
+        return executable is null ? null : FindDataFolder(Path.GetDirectoryName(executable)!, stems);
+    }
+
+    private string? FindSavedSettings(string id, params string[] stems)
+    {
+        var folder = Path.Combine(SavedSettingsRoot, id);
+        return Directory.Exists(folder) ? FindDataFolder(folder, stems) : null;
+    }
+
+    private static string? FindDataFolder(string directory, string[] stems)
+    {
+        var names = stems.Select(stem => stem + "Data").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return Directory.EnumerateDirectories(directory)
+            .Where(dir => names.Contains(Path.GetFileName(dir)))
+            .Where(dir => (File.GetAttributes(dir) & FileAttributes.ReparsePoint) == 0)
+            .FirstOrDefault(dir => Directory.EnumerateFileSystemEntries(dir).Any());
+    }
+
+    private void SaveSettingsAside(string dataFolder, string id)
+    {
+        var folder = Path.Combine(SavedSettingsRoot, id);
+        var destination = Path.Combine(folder, Path.GetFileName(dataFolder));
+        var replaced = $"{destination}.old-{Guid.NewGuid():N}";
+        Directory.CreateDirectory(folder);
+        if (Directory.Exists(destination)) Directory.Move(destination, replaced);
+        try { Directory.Move(dataFolder, destination); }
+        catch
+        {
+            if (Directory.Exists(replaced)) Directory.Move(replaced, destination);
+            throw;
+        }
+        TryDelete(replaced);
+    }
+
+    /// <summary>Copies a folder, skipping links so nothing outside it is followed.</summary>
+    internal static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var entry in new DirectoryInfo(source).EnumerateFileSystemInfos())
+        {
+            if ((entry.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+            var target = Path.Combine(destination, entry.Name);
+            if (entry is DirectoryInfo) CopyDirectory(entry.FullName, target);
+            else File.Copy(entry.FullName, target, true);
+        }
     }
 
     public static void Launch(InstalledApp app)

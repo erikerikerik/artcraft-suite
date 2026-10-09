@@ -19,12 +19,12 @@ the minor number for new features (`v0.4.0`). A tag containing a hyphen, such as
 From a clone:
 
 ```powershell
-git tag -a v0.3.3 -m "ArtCraft Suite Manager 0.3.3"
-git push origin v0.3.3
+git tag -a v0.3.4 -m "ArtCraft Suite Manager 0.3.4"
+git push origin v0.3.4
 ```
 
 Or on GitHub: **Releases → Draft a new release**, type the new tag (for example
-`v0.3.3`), choose **Create new tag on publish** targeting `main`, and publish.
+`v0.3.4`), choose **Create new tag on publish** targeting `main`, and publish.
 
 Either way, the `Release` workflow builds the Windows x64 package and the clearly
 labeled unsigned macOS ARM scaffold, writes SHA-256 files for both, and attaches

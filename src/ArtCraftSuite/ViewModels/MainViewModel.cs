@@ -226,7 +226,7 @@ public sealed class MainViewModel : ObservableObject
         if (IsBusy) return Task.CompletedTask;
         try
         {
-            var warning = _installer.Uninstall(app.Manifest.Id, app.Name);
+            var warning = _installer.Uninstall(app.Manifest.Id, app.Name, app.Manifest.EffectivePackageId);
             app.Installed = null;
             Status = warning ?? $"{app.Name} was removed.";
         }

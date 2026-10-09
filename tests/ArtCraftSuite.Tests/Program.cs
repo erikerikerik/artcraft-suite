@@ -22,6 +22,11 @@ var tests = new (string Name, Func<Task> Run)[]
     ("every manifest package layout locates its executable", TestAllPackageLayouts),
     ("legacy Rust install state migrates without false repair warnings", TestRustStateMigration),
     ("failed updates restore the previous app and state", TestUpdateRollback),
+    ("portable settings helpers keep data and drop unused markers", TestPortableSettingsHelpers),
+    ("fresh installs drop the portable marker", TestFreshInstallDropsPortableMarker),
+    ("updates keep an app's portable settings", TestUpdateKeepsPortableSettings),
+    ("removing an app keeps its settings for a reinstall", TestRemoveKeepsPortableSettings),
+    ("removal recovers settings left in the previous version", TestRemoveRecoversPreviousSettings),
     ("diagnostic reports are structured and copy-safe", TestDiagnostics)
 };
 
@@ -218,6 +223,111 @@ static async Task TestUpdateRollback()
     Equal("v1", await File.ReadAllTextAsync(restored.ExecutablePath));
 }
 
+static Task TestPortableSettingsHelpers()
+{
+    using var area = new TempArea();
+    var oldInstall = Path.Combine(area.Path, "old", "photocraft-0.4.0");
+    Directory.CreateDirectory(Path.Combine(oldInstall, "PhotoCraftData", "presets"));
+    File.WriteAllText(Path.Combine(oldInstall, "photocraft.exe"), "old");
+    File.WriteAllText(Path.Combine(oldInstall, "PhotoCraftData", "settings.json"), "{\"theme\":\"dark\"}");
+    File.WriteAllText(Path.Combine(oldInstall, "PhotoCraftData", "presets", "warm.json"), "warm");
+    var data = PortableInstallerService.FindPortableData(Path.Combine(area.Path, "old"), "photocraft");
+    Equal(Path.Combine(oldInstall, "PhotoCraftData"), data);
+
+    var withData = Path.Combine(area.Path, "with-data");
+    Directory.CreateDirectory(withData);
+    PortableInstallerService.PreparePortableSettings(withData, data);
+    Equal("warm", File.ReadAllText(Path.Combine(withData, "PhotoCraftData", "presets", "warm.json")));
+    True(File.Exists(Path.Combine(withData, "portable.txt")));
+
+    var fresh = Path.Combine(area.Path, "fresh");
+    Directory.CreateDirectory(fresh);
+    File.WriteAllText(Path.Combine(fresh, "portable.txt"), "");
+    File.WriteAllText(Path.Combine(fresh, "PhotoCraft.portable"), "");
+    File.WriteAllText(Path.Combine(fresh, "readme.txt"), "keep");
+    PortableInstallerService.PreparePortableSettings(fresh, null);
+    True(!File.Exists(Path.Combine(fresh, "portable.txt")) && !File.Exists(Path.Combine(fresh, "PhotoCraft.portable")));
+    True(File.Exists(Path.Combine(fresh, "readme.txt")));
+
+    var empty = Path.Combine(area.Path, "empty");
+    Directory.CreateDirectory(Path.Combine(empty, "PhotoCraftData"));
+    File.WriteAllText(Path.Combine(empty, "photocraft.exe"), "x");
+    Equal<string?>(null, PortableInstallerService.FindPortableData(empty, "photocraft"));
+    return Task.CompletedTask;
+}
+
+static async Task TestFreshInstallDropsPortableMarker()
+{
+    using var area = new TempArea();
+    var app = DemoApp();
+    var v1 = await CreateArchive(area.Path, "v1", app.EffectivePackageId, portable: true);
+    var installed = await new PortableInstallerService(Path.Combine(area.Path, "data")).InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    True(!File.Exists(Path.Combine(Path.GetDirectoryName(installed.ExecutablePath)!, "portable.txt")));
+}
+
+static async Task TestUpdateKeepsPortableSettings()
+{
+    using var area = new TempArea();
+    var root = Path.Combine(area.Path, "data");
+    var app = DemoApp();
+    var v1 = await CreateArchive(area.Path, "v1", app.EffectivePackageId, portable: true);
+    var v2 = await CreateArchive(area.Path, "v2", app.EffectivePackageId, portable: true);
+    var first = await new PortableInstallerService(root).InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    var folder = Path.GetDirectoryName(first.ExecutablePath)!;
+    // An install made before this fix: the marker is still there and the app has written settings.
+    File.WriteAllText(Path.Combine(folder, "portable.txt"), "");
+    Directory.CreateDirectory(Path.Combine(folder, "demoData"));
+    File.WriteAllText(Path.Combine(folder, "demoData", "settings.json"), "mine");
+
+    var second = await new PortableInstallerService(root).InstallZipAsync(app, TestRelease("2.0.0", v2), v2, default);
+    var updated = Path.GetDirectoryName(second.ExecutablePath)!;
+    Equal("v2", File.ReadAllText(second.ExecutablePath));
+    Equal("mine", File.ReadAllText(Path.Combine(updated, "demoData", "settings.json")));
+    True(File.Exists(Path.Combine(updated, "portable.txt")));
+}
+
+static async Task TestRemoveKeepsPortableSettings()
+{
+    using var area = new TempArea();
+    var root = Path.Combine(area.Path, "data");
+    var app = DemoApp();
+    var v1 = await CreateArchive(area.Path, "v1", app.EffectivePackageId, portable: true);
+    var installer = new PortableInstallerService(root);
+    var first = await installer.InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    var folder = Path.GetDirectoryName(first.ExecutablePath)!;
+    File.WriteAllText(Path.Combine(folder, "portable.txt"), "");
+    Directory.CreateDirectory(Path.Combine(folder, "demoData"));
+    File.WriteAllText(Path.Combine(folder, "demoData", "settings.json"), "mine");
+
+    var message = installer.Uninstall(app.Id, app.Name, app.EffectivePackageId);
+    True(message is not null && message.Contains("settings were kept", StringComparison.Ordinal));
+    var again = await installer.InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    Equal("mine", File.ReadAllText(Path.Combine(Path.GetDirectoryName(again.ExecutablePath)!, "demoData", "settings.json")));
+}
+
+static async Task TestRemoveRecoversPreviousSettings()
+{
+    using var area = new TempArea();
+    var root = Path.Combine(area.Path, "data");
+    var app = DemoApp();
+    var v1 = await CreateArchive(area.Path, "v1", app.EffectivePackageId, portable: true);
+    var v2 = await CreateArchive(area.Path, "v2", app.EffectivePackageId, portable: true);
+    var installer = new PortableInstallerService(root);
+    var first = await installer.InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    var firstFolder = Path.GetDirectoryName(first.ExecutablePath)!;
+    File.WriteAllText(Path.Combine(firstFolder, "portable.txt"), "");
+    Directory.CreateDirectory(Path.Combine(firstFolder, "demoData"));
+    File.WriteAllText(Path.Combine(firstFolder, "demoData", "settings.json"), "survivor");
+
+    var second = await installer.InstallZipAsync(app, TestRelease("2.0.0", v2), v2, default);
+    Directory.Delete(Path.Combine(Path.GetDirectoryName(second.ExecutablePath)!, "demoData"), true);
+
+    var message = installer.Uninstall(app.Id, app.Name, app.EffectivePackageId);
+    True(message is not null && message.Contains("settings were kept", StringComparison.Ordinal));
+    var again = await installer.InstallZipAsync(app, TestRelease("1.0.0", v1), v1, default);
+    Equal("survivor", File.ReadAllText(Path.Combine(Path.GetDirectoryName(again.ExecutablePath)!, "demoData", "settings.json")));
+}
+
 static Task TestRustStateMigration()
 {
     using var area = new TempArea();
@@ -261,13 +371,14 @@ static AppManifest DemoApp() => new("demo", "Demo", "Demo", "storytold/demo", nu
 static ResolvedRelease TestRelease(string version, string archive) =>
     new(version, $"v{version}", new GitHubAsset(Path.GetFileName(archive), "https://invalid/", 0, null), new string('0', 64));
 
-static async Task<string> CreateArchive(string root, string version, string executable)
+static async Task<string> CreateArchive(string root, string version, string executable, bool portable = false)
 {
     var archive = Path.Combine(root, $"{version}.zip");
     using var zip = ZipFile.Open(archive, ZipArchiveMode.Create);
     var entry = zip.CreateEntry($"nested/{executable}.exe");
-    await using var output = entry.Open();
-    await output.WriteAsync(System.Text.Encoding.UTF8.GetBytes(version));
+    await using (var output = entry.Open())
+        await output.WriteAsync(System.Text.Encoding.UTF8.GetBytes(version));
+    if (portable) zip.CreateEntry("nested/portable.txt");
     return archive;
 }
 
