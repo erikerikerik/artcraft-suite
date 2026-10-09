@@ -18,8 +18,8 @@ is Windows x64; a macOS Apple Silicon build scaffold is included.
   provenance preserved under [`assets/icons`](assets/icons/README.md).
 - Offers **Stable** (newest non-prerelease) and **Latest** (newest release,
   including prereleases) channels.
-- Installs official Windows x64 portable packages per-user, with no administrator
-  prompt, under `%LOCALAPPDATA%\ArtCraftSuite\apps`.
+- Installs official Windows x64 ZIP builds for the current user, with no
+  administrator prompt, under `%LOCALAPPDATA%\ArtCraftSuite\apps`.
 - Requires SHA-256 verification before extraction. It prefers GitHub's immutable
   release-asset digest and falls back to the upstream `SHA256SUMS.txt` file.
 - Stages updates before swapping directories, defends against ZIP path traversal,
